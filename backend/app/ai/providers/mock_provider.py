@@ -165,6 +165,7 @@ class MockAIProvider(AIProvider):
                     "allowlist matches and historical correlation. This is a summary of "
                     "reasoning, not hidden chain-of-thought."
                 ),
+                "false_positive_reasoning": self._fp_reasoning(verdict, allowlisted, prior_fp, malicious_iocs),
                 "facts_observed": facts,
                 "assumptions": [
                     "Timestamps are assumed accurate and in the customer's timezone.",
@@ -184,6 +185,28 @@ class MockAIProvider(AIProvider):
             }
         )
         return result
+
+    def _fp_reasoning(self, verdict: str, allowlisted: bool, prior_fp: bool, malicious_iocs: list) -> str:
+        if malicious_iocs:
+            return (
+                "False-positive likelihood is LOW: one or more indicators returned malicious "
+                "reputation from enrichment, which is inconsistent with benign activity."
+            )
+        if allowlisted:
+            return (
+                "False-positive likelihood is HIGH: the source matches a customer allowlist "
+                "(e.g. sanctioned scanner / service account), a common benign-activity pattern. "
+                "Confirm the activity window with the customer before closing."
+            )
+        if prior_fp:
+            return (
+                "False-positive likelihood is ELEVATED: this alert matches a documented "
+                "known-false-positive pattern for the customer. Validate it has not changed."
+            )
+        return (
+            "False-positive likelihood is UNDETERMINED: insufficient context to rule the alert "
+            "benign. Validate authentication outcomes, source ownership and expected activity."
+        )
 
     def _exec_summary(self, alert_name: str, ctx: dict, verdict: str) -> str:
         src = ctx.get("src_ip", "an internal/external source")

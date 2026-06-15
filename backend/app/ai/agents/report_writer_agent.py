@@ -82,6 +82,9 @@ class ReportWriterAgent:
         a("")
         a("## 10. Confidence Score")
         a(f"**{inv.get('confidence_score', 0)}%** — {inv.get('reasoning_summary', '')}")
+        if inv.get("false_positive_reasoning"):
+            a("")
+            a(f"**False-positive assessment:** {inv['false_positive_reasoning']}")
         a("")
         a("## 11. Evidence")
         for e in inv.get("evidence") or []:

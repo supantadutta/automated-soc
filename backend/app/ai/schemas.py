@@ -134,6 +134,7 @@ def empty_investigation() -> dict[str, Any]:
         "confidence_score": 0,
         "severity_recommendation": "Medium",
         "reasoning_summary": "",
+        "false_positive_reasoning": "",
         "facts_observed": [],
         "assumptions": [],
         "evidence": [],

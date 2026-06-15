@@ -96,13 +96,53 @@ def mitre_summary(db: Session = Depends(get_db), ctx: TenantContext = Depends(ge
 
 @router.get("/ai-operations")
 def ai_operations(db: Session = Depends(get_db), ctx: TenantContext = Depends(get_context)):
+    org = ctx.organization_id
     runs = db.execute(
-        select(AIRun).where(AIRun.organization_id == ctx.organization_id)
+        select(AIRun).where(AIRun.organization_id == org)
         .order_by(AIRun.created_at.desc())
     ).scalars().all()
     total = len(runs)
     local = sum(1 for r in runs if r.is_local)
     by_provider: Counter = Counter(r.provider for r in runs)
+
+    # Time-series buckets (last 14 days) for cost / latency / volume charts.
+    series: dict[str, dict] = {}
+    for r in runs:
+        day = (r.created_at or datetime.now(timezone.utc)).strftime("%Y-%m-%d")
+        b = series.setdefault(day, {"date": day, "cost": 0.0, "runs": 0, "latency_sum": 0, "failed": 0})
+        b["cost"] = round(b["cost"] + (r.estimated_cost or 0), 6)
+        b["runs"] += 1
+        b["latency_sum"] += r.latency_ms or 0
+        if not r.success:
+            b["failed"] += 1
+    timeseries = []
+    for day in sorted(series.keys())[-14:]:
+        b = series[day]
+        timeseries.append({
+            "date": day, "cost": round(b["cost"], 4), "runs": b["runs"], "failed": b["failed"],
+            "avg_latency_ms": round(b["latency_sum"] / b["runs"], 1) if b["runs"] else 0,
+        })
+
+    # Top expensive investigations (sum AI cost per investigation_id).
+    inv_cost: dict[int, dict] = {}
+    for r in runs:
+        if r.investigation_id:
+            e = inv_cost.setdefault(r.investigation_id, {"investigation_id": r.investigation_id, "cost": 0.0, "runs": 0, "alert_id": r.alert_id})
+            e["cost"] = round(e["cost"] + (r.estimated_cost or 0), 6)
+            e["runs"] += 1
+    top_expensive = sorted(inv_cost.values(), key=lambda x: x["cost"], reverse=True)[:10]
+
+    failed_calls = [
+        {"id": r.id, "provider": r.provider, "model": r.model, "prompt_type": r.prompt_type,
+         "error_message": r.error_message, "created_at": r.created_at}
+        for r in runs if not r.success
+    ][:20]
+    fallback_events = [
+        {"id": r.id, "provider": r.provider, "model": r.model, "prompt_type": r.prompt_type,
+         "is_local": r.is_local, "created_at": r.created_at}
+        for r in runs if r.fallback_used
+    ][:20]
+
     return {
         "active_provider": settings.default_ai_provider,
         "routing_mode": settings.ai_routing_mode,
@@ -115,9 +155,14 @@ def ai_operations(db: Session = Depends(get_db), ctx: TenantContext = Depends(ge
         "estimated_cost": round(sum(r.estimated_cost for r in runs), 4),
         "avg_latency_ms": round(sum(r.latency_ms for r in runs) / total, 1) if total else 0,
         "by_provider": dict(by_provider),
+        "timeseries": timeseries,
+        "top_expensive_investigations": top_expensive,
+        "failed_calls": failed_calls,
+        "fallback_events": fallback_events,
         "recent_runs": [
             {"id": r.id, "provider": r.provider, "model": r.model, "success": r.success,
-             "latency_ms": r.latency_ms, "estimated_cost": r.estimated_cost,
+             "latency_ms": r.latency_ms, "estimated_cost": r.estimated_cost, "prompt_type": r.prompt_type,
+             "input_tokens": r.input_tokens, "output_tokens": r.output_tokens,
              "fallback_used": r.fallback_used, "is_local": r.is_local, "created_at": r.created_at}
             for r in runs[:20]
         ],

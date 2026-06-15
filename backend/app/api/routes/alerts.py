@@ -135,6 +135,15 @@ async def investigate(alert_id: int, payload: InvestigateRequest | None = None,
     alert = _get_alert(db, ctx, alert_id)
     payload = payload or InvestigateRequest()
 
+    # Default provider / routing mode from the org's runtime AI config.
+    from app.services.ai_config_service import get_runtime_config
+
+    runtime = get_runtime_config(db, ctx.organization_id)
+    override_provider = payload.provider or (
+        runtime["default_provider"] if runtime["source"] == "runtime" else None
+    )
+    routing_mode = payload.routing_mode or runtime["routing_mode"]
+
     # Auto-run the upstream pipeline if requested and not yet done.
     normalized = db.execute(
         select(NormalizedAlert).where(NormalizedAlert.alert_id == alert.id)
@@ -146,8 +155,8 @@ async def investigate(alert_id: int, payload: InvestigateRequest | None = None,
             await enrich_alert(db, alert)
 
     investigation = await investigate_alert(
-        db, alert, actor_id=ctx.user_id, override_provider=payload.provider,
-        routing_mode=payload.routing_mode,
+        db, alert, actor_id=ctx.user_id, override_provider=override_provider,
+        routing_mode=routing_mode,
     )
     audit_service.record(db, organization_id=ctx.organization_id, action="alert.investigate",
                          actor_id=ctx.user_id, actor_email=ctx.email, target_type="investigation",

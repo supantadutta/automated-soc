@@ -83,6 +83,11 @@ def seed(db: Session) -> None:
 
     db.commit()
 
+    # --- Default versioned prompt templates ---
+    from app.services.prompt_service import seed_default_prompts
+
+    seed_default_prompts(db, org.id)
+
     # --- Sample alerts ---
     from app.models.alert import Alert
 

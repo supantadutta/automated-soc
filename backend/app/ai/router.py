@@ -21,6 +21,7 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
+from app.ai.capabilities import get_capability, models_for_provider
 from app.ai.providers import LOCAL_PROVIDERS, build_provider
 from app.ai.schemas import AIProviderError, AIRequest, AIResponse
 from app.core.config import settings
@@ -32,6 +33,50 @@ logger = get_logger("ai.router")
 QUALITY_ORDER = ["anthropic", "openai", "azure_openai", "gemini", "mistral", "openrouter", "groq", "ollama", "mock"]
 COST_ORDER = ["mock", "ollama", "lmstudio", "vllm", "groq", "openai", "anthropic"]
 SPEED_ORDER = ["groq", "ollama", "lmstudio", "openai", "mock"]
+
+# Public routing policy names (and their internal mode). Both forms are accepted.
+ROUTING_POLICIES = {
+    "auto": "auto",
+    "cost_optimized": "cost",
+    "quality_optimized": "quality",
+    "privacy_optimized": "privacy",
+    "local_only": "privacy",
+    "speed_optimized": "speed",
+    "critical_alert_mode": "soc_critical",
+    "offline_demo": "offline",
+    # internal short forms (back-compat)
+    "cost": "cost", "quality": "quality", "privacy": "privacy",
+    "speed": "speed", "soc_critical": "soc_critical", "offline": "offline",
+}
+
+
+def normalize_mode(mode: str | None) -> str:
+    return ROUTING_POLICIES.get((mode or "auto").lower(), "auto")
+
+
+def select_model(provider: str, mode: str, requested: str | None = None) -> str | None:
+    """Capability-aware model selection for a provider given the routing mode.
+
+    Honors an explicit request, otherwise picks a model from the capability
+    registry whose ``recommended_for`` matches the routing intent.
+    """
+    if requested:
+        return requested
+    candidates = models_for_provider(provider)
+    if not candidates:
+        return None
+    intent = {
+        "cost": "triage", "speed": "speed", "quality": "investigation",
+        "soc_critical": "critical", "privacy": "privacy", "offline": "demo",
+    }.get(mode, "investigation")
+    matches = [c for c in candidates if intent in c.recommended_for]
+    pool = matches or candidates
+    # For cost/speed prefer cheaper/faster; for quality/critical prefer pricier.
+    if mode in {"cost", "speed"}:
+        pool.sort(key=lambda c: (c.cost_per_output_token, c.latency_class != "fast"))
+    elif mode in {"quality", "soc_critical"}:
+        pool.sort(key=lambda c: -c.cost_per_output_token)
+    return pool[0].model
 
 
 @dataclass
@@ -69,7 +114,7 @@ class RouteResult:
 
 class AIRouter:
     def __init__(self, mode: str | None = None):
-        self.mode = (mode or settings.ai_routing_mode or "auto").lower()
+        self.mode = normalize_mode(mode or settings.ai_routing_mode)
 
     # ----------------------------------------------------------- chain building
     def build_chain(self, policy: CustomerPolicy, override_provider: str | None = None) -> list[str]:
@@ -149,7 +194,11 @@ class AIRouter:
             attempted.append(provider_key)
             started = time.perf_counter()
             try:
-                provider = build_provider(provider_key, request.model if idx == 0 else None)
+                # Capability-aware model selection: honor an explicit model on the
+                # first hop, otherwise pick a model that suits the routing intent.
+                requested_model = request.model if idx == 0 else None
+                model = select_model(provider_key, self.mode, requested_model)
+                provider = build_provider(provider_key, model)
                 response = await provider.generate(req)
                 self._record(
                     db, response, success=True, fallback_used=idx > 0,

@@ -2,21 +2,40 @@
 from __future__ import annotations
 
 import asyncio
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.ai.capabilities import all_capabilities, get_capability
 from app.ai.providers import LOCAL_PROVIDERS, PROVIDER_REGISTRY, build_provider
 from app.ai.prompts import get_system_prompt, investigation_user_prompt, parser_user_prompt
-from app.api.deps import get_context
+from app.ai.router import ROUTING_POLICIES
+from app.api.deps import get_context, require_org_admin, require_write
 from app.core.config import settings
 from app.core.tenancy import TenantContext
 from app.db.session import get_db
 from app.models.ai import AIRun
 from app.schemas import PromptPreviewRequest, ProviderTestRequest
+from app.services import ai_config_service, prompt_service
 
 router = APIRouter(prefix="/ai", tags=["ai"])
+
+
+class RuntimeConfigUpdate(BaseModel):
+    default_provider: str | None = None
+    routing_mode: str | None = None
+    fallback_enabled: bool | None = None
+
+
+class PromptVersionCreate(BaseModel):
+    prompt_type: str
+    template: str
+    name: str | None = None
 
 # Which env keys indicate a provider is configured.
 CONFIG_KEYS = {
@@ -53,26 +72,41 @@ PROVIDER_MODELS = {
 
 
 @router.get("/providers")
-def list_providers(ctx: TenantContext = Depends(get_context)):
+def list_providers(db: Session = Depends(get_db), ctx: TenantContext = Depends(get_context)):
     out = []
     for key in PROVIDER_REGISTRY:
+        model = PROVIDER_MODELS.get(key, lambda s: None)(settings)
+        cap = get_capability(model, key)
+        is_local = key in LOCAL_PROVIDERS
         out.append({
             "provider": key,
             "configured": CONFIG_KEYS.get(key, lambda s: False)(settings),
-            "model": PROVIDER_MODELS.get(key, lambda s: None)(settings),
-            "is_local": key in LOCAL_PROVIDERS,
+            "model": model,
+            "is_local": is_local,
             "cost_tracking": settings.ai_enable_cost_tracking,
             "is_default": key == settings.default_ai_provider,
+            # Capability metadata (never includes secrets).
+            "privacy_level": "local" if is_local else cap.privacy_level,
+            "supports_json": cap.supports_json,
+            "supports_tools": cap.supports_tools,
+            "supports_vision": cap.supports_vision,
+            "supports_streaming": cap.supports_streaming,
+            "max_context_tokens": cap.max_context_tokens,
+            "latency_class": cap.latency_class,
+            "recommended_for": cap.recommended_for,
         })
+    runtime = ai_config_service.get_runtime_config(db, ctx.organization_id)
     return {
         "providers": out,
-        "default_provider": settings.default_ai_provider,
+        "default_provider": runtime["default_provider"],
         "default_model": settings.default_ai_model,
-        "routing_mode": settings.ai_routing_mode,
+        "routing_mode": runtime["routing_mode"],
+        "routing_policies": sorted(set(ROUTING_POLICIES.keys())),
         "fallback_chain": settings.fallback_chain_list,
-        "fallback_enabled": settings.ai_enable_fallback,
+        "fallback_enabled": runtime["fallback_enabled"],
         "pii_redaction": settings.ai_enable_pii_redaction,
         "strict_json": settings.ai_strict_json_mode,
+        "config_source": runtime["source"],
     }
 
 
@@ -170,3 +204,90 @@ def prompt_preview(payload: PromptPreviewRequest, ctx: TenantContext = Depends(g
     else:
         user = investigation_user_prompt({"alert_name": "Sample Alert", "raw_excerpt": sample})
     return {"prompt_type": payload.prompt_type, "system_prompt": system, "user_prompt": user}
+
+
+# --------------------------------------------------------------- capabilities
+@router.get("/capabilities")
+def capabilities(ctx: TenantContext = Depends(get_context)):
+    return {"models": all_capabilities(), "routing_policies": sorted(set(ROUTING_POLICIES.keys()))}
+
+
+@router.get("/models")
+def models(ctx: TenantContext = Depends(get_context)):
+    """Models grouped by provider with capability + cost metadata."""
+    grouped: dict[str, list] = defaultdict(list)
+    for cap in all_capabilities():
+        grouped[cap["provider"]].append(cap)
+    return {"by_provider": grouped}
+
+
+@router.get("/ollama/models")
+async def ollama_models(ctx: TenantContext = Depends(get_context)):
+    """Live list of locally installed Ollama models."""
+    base = settings.ollama_base_url.rstrip("/")
+    try:
+        async with httpx.AsyncClient(timeout=6) as client:
+            resp = await client.get(f"{base}/api/tags")
+            if resp.status_code != 200:
+                return {"available": False, "models": [], "detail": f"HTTP {resp.status_code}"}
+            models = [
+                {"name": m.get("name"), "size": m.get("size"),
+                 "modified_at": m.get("modified_at")}
+                for m in resp.json().get("models", [])
+            ]
+            return {"available": True, "base_url": base, "models": models}
+    except httpx.HTTPError as exc:
+        return {"available": False, "models": [], "detail": f"unreachable: {type(exc).__name__}"}
+
+
+# ------------------------------------------------------------- runtime config
+@router.get("/config")
+def get_config(db: Session = Depends(get_db), ctx: TenantContext = Depends(get_context)):
+    cfg = ai_config_service.get_runtime_config(db, ctx.organization_id)
+    cap = get_capability(None, cfg["default_provider"])
+    cfg["default_provider_privacy"] = (
+        "local" if cfg["default_provider"] in LOCAL_PROVIDERS else cap.privacy_level
+    )
+    return cfg
+
+
+@router.put("/config")
+def update_config(payload: RuntimeConfigUpdate, db: Session = Depends(get_db),
+                  ctx: TenantContext = Depends(require_org_admin)):
+    return ai_config_service.set_runtime_config(
+        db, ctx.organization_id, actor_id=ctx.user_id, actor_email=ctx.email,
+        default_provider=payload.default_provider, routing_mode=payload.routing_mode,
+        fallback_enabled=payload.fallback_enabled,
+    )
+
+
+# ------------------------------------------------------------------- prompts
+@router.get("/prompts")
+def list_prompts(db: Session = Depends(get_db), ctx: TenantContext = Depends(get_context)):
+    prompt_service.seed_default_prompts(db, ctx.organization_id)
+    return prompt_service.list_prompts(db, ctx.organization_id)
+
+
+@router.post("/prompts")
+def create_prompt(payload: PromptVersionCreate, db: Session = Depends(get_db),
+                  ctx: TenantContext = Depends(require_write)):
+    return prompt_service.create_version(
+        db, ctx.organization_id, payload.prompt_type, payload.template, payload.name,
+        actor_id=ctx.user_id, actor_email=ctx.email,
+    )
+
+
+@router.post("/prompts/{prompt_id}/activate")
+def activate_prompt(prompt_id: int, db: Session = Depends(get_db),
+                    ctx: TenantContext = Depends(require_write)):
+    result = prompt_service.activate(db, ctx.organization_id, prompt_id,
+                                     actor_id=ctx.user_id, actor_email=ctx.email)
+    if result is None:
+        raise HTTPException(404, "Prompt not found")
+    return result
+
+
+@router.post("/prompts/{prompt_id}/test")
+def test_prompt(prompt_id: int, db: Session = Depends(get_db),
+                ctx: TenantContext = Depends(get_context)):
+    return prompt_service.evaluate(db, ctx.organization_id, prompt_id)

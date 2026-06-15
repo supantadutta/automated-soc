@@ -121,10 +121,17 @@ class AIProvider(ABC):
         if self.is_local:
             cost = 0.0
         else:
-            in_price, out_price = price_for(model)
-            cost = (usage.input_tokens / 1000) * in_price + (
-                usage.output_tokens / 1000
-            ) * out_price
+            # Prefer the capability registry (per-token) as the single source of
+            # truth; fall back to coarse per-1K pricing for unknown models.
+            from app.ai.capabilities import MODEL_CAPABILITIES, estimate_cost_tokens
+
+            if model in MODEL_CAPABILITIES:
+                cost = estimate_cost_tokens(model, usage.input_tokens, usage.output_tokens, self.name)
+            else:
+                in_price, out_price = price_for(model)
+                cost = (usage.input_tokens / 1000) * in_price + (
+                    usage.output_tokens / 1000
+                ) * out_price
         return AIResponse(
             text=text,
             provider=self.name,
