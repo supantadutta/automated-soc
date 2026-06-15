@@ -1,0 +1,42 @@
+{
+  "alert_id": "ALRT-2026-0003",
+  "source_tool": "Okta",
+  "alert_name": "Successful Brute Force After Repeated Failures",
+  "severity": "critical",
+  "category": "Credential Access",
+  "mitre_techniques": ["T1110.001"],
+  "mitre_technique_names": ["Brute Force: Password Guessing"],
+  "detected_at": "2026-06-09T23:41:02Z",
+  "status": "new",
+  "customer_id": "cust-initech-003",
+  "raw": {
+    "src_ip": "203.0.113.91",
+    "geo": {"country": "VN", "city": "Hanoi", "asn": "AS64501"},
+    "username": "tmiller@initech.com",
+    "app": "Okta Dashboard",
+    "failed_attempts": 214,
+    "first_failure": "2026-06-09T23:18:44Z",
+    "success_event": "2026-06-09T23:40:57Z",
+    "mfa_satisfied": false,
+    "mfa_factor": "none_configured",
+    "user_agent": "python-requests/2.31.0",
+    "result": "success",
+    "session_id": "sess-7f3a9c1e"
+  },
+  "evidence": [
+    "214 consecutive failed logins for tmiller@initech.com from 203.0.113.91 between 23:18:44 and 23:40:57 UTC.",
+    "A successful authentication occurred at 23:40:57 UTC from the same source IP immediately after the failure burst.",
+    "No MFA factor was configured on the account, so the password alone granted access.",
+    "All requests used user-agent python-requests/2.31.0, indicating scripted access.",
+    "Source IP 203.0.113.91 geolocates to Hanoi, VN (AS64501)."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["203.0.113.91"],
+      "domains": [],
+      "hashes": [],
+      "users": ["tmiller@initech.com"],
+      "hosts": []
+    }
+  }
+}

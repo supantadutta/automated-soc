@@ -1,0 +1,41 @@
+{
+  "alert_id": "ALRT-2026-0017",
+  "source_tool": "Zeek",
+  "alert_name": "Suspicious DNS Query to Newly Registered Domain",
+  "severity": "medium",
+  "category": "Command and Control",
+  "mitre_techniques": ["T1071.004", "T1568"],
+  "mitre_technique_names": ["Application Layer Protocol: DNS", "Dynamic Resolution"],
+  "detected_at": "2026-06-13T11:22:37Z",
+  "status": "new",
+  "customer_id": "cust-globex-002",
+  "raw": {
+    "src_ip": "10.40.7.155",
+    "hostname": "FIN-WKSTN-08",
+    "dns_server": "10.40.0.2",
+    "query": "update-check.bad-actor.test",
+    "query_type": "A",
+    "answer": "203.0.113.77",
+    "domain_age_days": 2,
+    "domain_reputation": "unknown",
+    "query_count_last_hour": 38,
+    "ttl": 60,
+    "proto": "udp",
+    "dest_port": 53
+  },
+  "evidence": [
+    "Host FIN-WKSTN-08 (10.40.7.155) resolved update-check.bad-actor.test 38 times in the last hour via DNS server 10.40.0.2.",
+    "The domain bad-actor.test was first observed 2 days ago and has no reputation in threat intel feeds.",
+    "Returned A record 203.0.113.77 has a low TTL of 60 seconds, consistent with fast-flux or dynamic infrastructure.",
+    "No corresponding business application is mapped to update-check.bad-actor.test in the asset inventory."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["10.40.7.155", "203.0.113.77", "10.40.0.2"],
+      "domains": ["update-check.bad-actor.test", "bad-actor.test"],
+      "hashes": [],
+      "users": [],
+      "hosts": ["FIN-WKSTN-08"]
+    }
+  }
+}

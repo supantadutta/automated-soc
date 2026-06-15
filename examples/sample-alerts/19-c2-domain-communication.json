@@ -1,0 +1,44 @@
+{
+  "alert_id": "ALRT-2026-0019",
+  "source_tool": "Suricata",
+  "alert_name": "C2 Beacon to Known Bad Domain",
+  "severity": "critical",
+  "category": "Command and Control",
+  "mitre_techniques": ["T1071.001", "T1571"],
+  "mitre_technique_names": ["Application Layer Protocol: Web Protocols", "Non-Standard Port"],
+  "detected_at": "2026-06-13T18:22:41Z",
+  "status": "new",
+  "customer_id": "cust-initech-003",
+  "raw": {
+    "src_ip": "10.20.8.55",
+    "dest_ip": "203.0.113.66",
+    "hostname": "SALES-WKS-07",
+    "domain": "beacon.evil-c2.example",
+    "dest_port": 8443,
+    "protocol": "TLS",
+    "beacon_interval_seconds": 60,
+    "jitter_pct": 8,
+    "connections_last_hour": 58,
+    "bytes_out": 142000,
+    "bytes_in": 9800,
+    "ja3": "a0e9f5d64349fb13191bc781f81f42e1",
+    "sig_id": 2031245,
+    "detail": "Periodic beaconing to known command-and-control domain"
+  },
+  "evidence": [
+    "Host SALES-WKS-07 (10.20.8.55) established 58 outbound TLS connections to 203.0.113.66 (beacon.evil-c2.example) over one hour.",
+    "Connections occurred at a near-fixed 60-second interval with 8% jitter, consistent with automated C2 beaconing rather than user browsing.",
+    "Destination uses non-standard port 8443 and a JA3 fingerprint previously associated with commodity C2 frameworks.",
+    "Outbound/inbound byte ratio (142 KB out / 9.8 KB in) is consistent with beacon check-ins and small task responses.",
+    "Suricata signature 2031245 fired on the known-bad domain beacon.evil-c2.example."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["10.20.8.55", "203.0.113.66"],
+      "domains": ["beacon.evil-c2.example", "evil-c2.example"],
+      "hashes": [],
+      "users": [],
+      "hosts": ["SALES-WKS-07"]
+    }
+  }
+}

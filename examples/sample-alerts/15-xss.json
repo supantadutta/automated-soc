@@ -1,0 +1,42 @@
+{
+  "alert_id": "ALRT-2026-0015",
+  "source_tool": "Cloudflare WAF",
+  "alert_name": "Reflected Cross-Site Scripting Attempt",
+  "severity": "medium",
+  "category": "Initial Access",
+  "mitre_techniques": ["T1190", "T1059.007"],
+  "mitre_technique_names": ["Exploit Public-Facing Application", "Command and Scripting Interpreter: JavaScript"],
+  "detected_at": "2026-06-11T13:45:02Z",
+  "status": "new",
+  "customer_id": "cust-initech-003",
+  "raw": {
+    "src_ip": "203.0.113.45",
+    "geo": {"country": "BR", "city": "Sao Paulo", "asn": "AS64505"},
+    "dest_host": "shop.initech.com",
+    "dest_ip": "10.60.0.5",
+    "http_method": "GET",
+    "request_uri": "/search?q=%3Cscript%3Ealert(document.cookie)%3C%2Fscript%3E",
+    "sanitized_payload": "q=<script>alert(document.cookie)</script>",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "referer": "http://malicious-domain.test/landing",
+    "waf_rule_id": "100015",
+    "waf_message": "XSS, Reflected XSS in query parameter",
+    "response_code": 403,
+    "blocked": true
+  },
+  "evidence": [
+    "GET request to shop.initech.com/search included a script tag payload (<script>alert(document.cookie)</script>) in the q parameter.",
+    "Cloudflare WAF rule 100015 matched the reflected XSS pattern and returned HTTP 403.",
+    "Request referer header points to malicious-domain.test, an unrecognized external host.",
+    "Source IP 203.0.113.45 sent 14 similar XSS probe requests to shop.initech.com between 13:40 and 13:45 UTC."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["203.0.113.45", "10.60.0.5"],
+      "domains": ["shop.initech.com", "malicious-domain.test"],
+      "hashes": [],
+      "users": [],
+      "hosts": []
+    }
+  }
+}

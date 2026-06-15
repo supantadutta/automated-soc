@@ -1,0 +1,40 @@
+{
+  "alert_id": "ALRT-2026-0011",
+  "source_tool": "Microsoft Defender",
+  "alert_name": "DLL Injection into Remote Process",
+  "severity": "high",
+  "category": "Defense Evasion",
+  "mitre_techniques": ["T1055.001"],
+  "mitre_technique_names": ["Process Injection: Dynamic-link Library Injection"],
+  "detected_at": "2026-06-06T17:26:14Z",
+  "status": "new",
+  "customer_id": "cust-globex-002",
+  "raw": {
+    "host": "GLBX-WS-0177",
+    "host_ip": "10.40.11.41",
+    "username": "GLOBEX\\dmorgan",
+    "source_process": "updater_svc.exe",
+    "source_pid": 4488,
+    "target_process": "explorer.exe",
+    "target_pid": 2204,
+    "injected_dll": "C:\\Users\\dmorgan\\AppData\\Local\\Temp\\hlpr32.dll",
+    "injected_dll_hash_sha256": "9f2c7b1a4e6d8c0f3a5b7e9d1c2f4a6b8d0e2c4f6a8b0d2e4c6f8a0b2d4e6f81",
+    "api_sequence": ["OpenProcess", "VirtualAllocEx", "WriteProcessMemory", "CreateRemoteThread"],
+    "signed_dll": false
+  },
+  "evidence": [
+    "updater_svc.exe (PID 4488) injected hlpr32.dll into explorer.exe (PID 2204) on GLBX-WS-0177.",
+    "The classic injection API sequence OpenProcess -> VirtualAllocEx -> WriteProcessMemory -> CreateRemoteThread was observed.",
+    "The injected DLL was unsigned and located in a per-user Temp directory.",
+    "DLL SHA-256 9f2c7b1a4e6d8c0f3a5b7e9d1c2f4a6b8d0e2c4f6a8b0d2e4c6f8a0b2d4e6f81 has no reputation record."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["10.40.11.41"],
+      "domains": [],
+      "hashes": ["9f2c7b1a4e6d8c0f3a5b7e9d1c2f4a6b8d0e2c4f6a8b0d2e4c6f8a0b2d4e6f81"],
+      "users": ["GLOBEX\\dmorgan"],
+      "hosts": ["GLBX-WS-0177"]
+    }
+  }
+}

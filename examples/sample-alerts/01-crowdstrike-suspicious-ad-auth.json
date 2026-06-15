@@ -1,0 +1,43 @@
+{
+  "alert_id": "ALRT-2026-0001",
+  "source_tool": "CrowdStrike Falcon",
+  "alert_name": "Suspicious Active Directory Authentication",
+  "severity": "high",
+  "category": "Credential Access",
+  "mitre_techniques": ["T1078.002", "T1110"],
+  "mitre_technique_names": ["Valid Accounts: Domain Accounts", "Brute Force"],
+  "detected_at": "2026-06-14T08:32:11Z",
+  "status": "new",
+  "customer_id": "cust-acme-001",
+  "raw": {
+    "src_ip": "10.14.22.87",
+    "domain": "ACME",
+    "username": "svc_backup",
+    "auth_type": "Kerberos",
+    "logon_type": 3,
+    "domain_controller": "DC01.acme.local",
+    "dc_ip": "10.14.0.10",
+    "event_id": 4768,
+    "ticket_encryption": "0x17",
+    "result": "success",
+    "anomaly_score": 0.91,
+    "baseline_hosts": ["BACKUP01", "BACKUP02"],
+    "observed_host": "WKSTN-ACCT-114",
+    "auth_count_last_hour": 47
+  },
+  "evidence": [
+    "Service account svc_backup authenticated from WKSTN-ACCT-114 (10.14.22.87), a host outside its baseline of BACKUP01/BACKUP02.",
+    "47 Kerberos TGT requests (event 4768) observed from 10.14.22.87 within the last hour against DC01.acme.local.",
+    "RC4 (0x17) ticket encryption requested, downgraded from the account's usual AES profile.",
+    "CrowdStrike anomaly score 0.91 for this authentication pattern."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["10.14.22.87", "10.14.0.10"],
+      "domains": [],
+      "hashes": [],
+      "users": ["svc_backup"],
+      "hosts": ["WKSTN-ACCT-114", "DC01.acme.local"]
+    }
+  }
+}

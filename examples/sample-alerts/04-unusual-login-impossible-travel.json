@@ -1,0 +1,45 @@
+{
+  "alert_id": "ALRT-2026-0004",
+  "source_tool": "Microsoft Defender",
+  "alert_name": "Impossible Travel / Geo Anomaly",
+  "severity": "medium",
+  "category": "Initial Access",
+  "mitre_techniques": ["T1078"],
+  "mitre_technique_names": ["Valid Accounts"],
+  "detected_at": "2026-06-11T16:22:30Z",
+  "status": "new",
+  "customer_id": "cust-acme-001",
+  "raw": {
+    "username": "rwhyte@acme.com",
+    "login_a": {
+      "timestamp": "2026-06-11T15:58:10Z",
+      "src_ip": "203.0.113.12",
+      "geo": {"country": "US", "city": "Austin", "lat": 30.27, "lon": -97.74}
+    },
+    "login_b": {
+      "timestamp": "2026-06-11T16:21:55Z",
+      "src_ip": "203.0.113.200",
+      "geo": {"country": "DE", "city": "Frankfurt", "lat": 50.11, "lon": 8.68}
+    },
+    "distance_km": 8240,
+    "elapsed_minutes": 24,
+    "implied_speed_kmh": 20600,
+    "both_logins_successful": true,
+    "mfa_satisfied": true
+  },
+  "evidence": [
+    "rwhyte@acme.com signed in from Austin, US (203.0.113.12) at 15:58:10 UTC and Frankfurt, DE (203.0.113.200) at 16:21:55 UTC.",
+    "The two locations are ~8,240 km apart but separated by only 24 minutes, implying a travel speed of ~20,600 km/h.",
+    "Both sign-ins succeeded and satisfied MFA, suggesting possible token theft or session hijack.",
+    "No corporate VPN egress is configured in Frankfurt for this tenant."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["203.0.113.12", "203.0.113.200"],
+      "domains": [],
+      "hashes": [],
+      "users": ["rwhyte@acme.com"],
+      "hosts": []
+    }
+  }
+}

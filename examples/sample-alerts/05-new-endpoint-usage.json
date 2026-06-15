@@ -1,0 +1,40 @@
+{
+  "alert_id": "ALRT-2026-0005",
+  "source_tool": "Microsoft Defender",
+  "alert_name": "New Endpoint / Device Enrollment Anomaly",
+  "severity": "low",
+  "category": "Discovery",
+  "mitre_techniques": ["T1078", "T1098.005"],
+  "mitre_technique_names": ["Valid Accounts", "Account Manipulation: Device Registration"],
+  "detected_at": "2026-06-05T09:14:27Z",
+  "status": "new",
+  "customer_id": "cust-globex-002",
+  "raw": {
+    "username": "klee@globex.com",
+    "new_device_id": "dev-a91f33c8",
+    "device_name": "DESKTOP-9KZ2QP",
+    "os": "Windows 11 24H2",
+    "src_ip": "10.40.7.155",
+    "first_seen": "2026-06-05T09:13:50Z",
+    "registration_method": "Azure AD Join",
+    "compliant": false,
+    "managed": false,
+    "prior_devices_count": 2,
+    "prior_device_names": ["GLBX-LT-0442", "GLBX-IPHONE-klee"]
+  },
+  "evidence": [
+    "A previously unseen device DESKTOP-9KZ2QP (dev-a91f33c8) registered to klee@globex.com at 09:13:50 UTC.",
+    "The device is unmanaged and non-compliant, unlike the user's two existing enrolled devices.",
+    "Registration originated from 10.40.7.155 on the internal network.",
+    "Device name does not match Globex's standard naming convention (GLBX-*)."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["10.40.7.155"],
+      "domains": [],
+      "hashes": [],
+      "users": ["klee@globex.com"],
+      "hosts": ["DESKTOP-9KZ2QP"]
+    }
+  }
+}

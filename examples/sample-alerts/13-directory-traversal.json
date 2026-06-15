@@ -1,0 +1,40 @@
+{
+  "alert_id": "ALRT-2026-0013",
+  "source_tool": "ModSecurity WAF",
+  "alert_name": "Directory Traversal Attempt",
+  "severity": "medium",
+  "category": "Initial Access",
+  "mitre_techniques": ["T1190"],
+  "mitre_technique_names": ["Exploit Public-Facing Application"],
+  "detected_at": "2026-06-03T07:44:21Z",
+  "status": "new",
+  "customer_id": "cust-acme-001",
+  "raw": {
+    "src_ip": "203.0.113.33",
+    "geo": {"country": "IN", "city": "Mumbai", "asn": "AS64503"},
+    "dest_host": "shop.acme.com",
+    "dest_ip": "10.20.6.40",
+    "http_method": "GET",
+    "request_uri": "/download?file=../../../../etc/passwd",
+    "user_agent": "curl/8.5.0",
+    "response_code": 403,
+    "modsec_rule_id": 930110,
+    "modsec_message": "Path Traversal Attack (/../)",
+    "blocked": true
+  },
+  "evidence": [
+    "GET request to shop.acme.com with parameter file=../../../../etc/passwd from 203.0.113.33.",
+    "ModSecurity rule 930110 (Path Traversal Attack) matched and returned HTTP 403.",
+    "The request used a curl/8.5.0 user-agent, indicating automated probing rather than a browser.",
+    "Source IP 203.0.113.33 geolocates to Mumbai, IN (AS64503)."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["203.0.113.33", "10.20.6.40"],
+      "domains": ["shop.acme.com"],
+      "hashes": [],
+      "users": [],
+      "hosts": []
+    }
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "alert_id": "ALRT-2026-0016",
+  "source_tool": "ModSecurity WAF",
+  "alert_name": "WAF Blocked Attack - Anomaly Score Threshold Exceeded",
+  "severity": "medium",
+  "category": "Initial Access",
+  "mitre_techniques": ["T1190", "T1595.002"],
+  "mitre_technique_names": ["Exploit Public-Facing Application", "Active Scanning: Vulnerability Scanning"],
+  "detected_at": "2026-06-12T02:09:44Z",
+  "status": "new",
+  "customer_id": "cust-acme-001",
+  "raw": {
+    "src_ip": "203.0.113.150",
+    "geo": {"country": "NL", "city": "Amsterdam", "asn": "AS64506"},
+    "dest_host": "www.acme.com",
+    "dest_ip": "10.14.0.10",
+    "http_method": "GET",
+    "request_uri": "/wp-content/plugins/../../../../etc/passwd",
+    "user_agent": "Nikto/2.5.0",
+    "modsec_anomaly_score": 47,
+    "modsec_anomaly_threshold": 5,
+    "modsec_rules_triggered": [930110, 932160, 913100],
+    "modsec_messages": [
+      "Path Traversal Attack",
+      "Remote Command Execution: Unix Shell Code Found",
+      "Found User-Agent associated with security scanner"
+    ],
+    "response_code": 403,
+    "blocked": true,
+    "requests_in_burst": 612
+  },
+  "evidence": [
+    "Inbound request to www.acme.com triggered an aggregate ModSecurity anomaly score of 47, far above the inbound threshold of 5.",
+    "Three CRS rules fired on a single request: 930110 (path traversal), 932160 (RCE shell code), 913100 (scanner user-agent).",
+    "User-agent Nikto/2.5.0 confirms an automated web vulnerability scanner.",
+    "Source 203.0.113.150 generated 612 requests against www.acme.com in a 4-minute burst, all returning HTTP 403."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["203.0.113.150", "10.14.0.10"],
+      "domains": ["www.acme.com"],
+      "hashes": [],
+      "users": [],
+      "hosts": []
+    }
+  }
+}

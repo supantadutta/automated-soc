@@ -1,0 +1,41 @@
+{
+  "alert_id": "ALRT-2026-0006",
+  "source_tool": "Splunk ES",
+  "alert_name": "RDP Login Anomaly",
+  "severity": "high",
+  "category": "Lateral Movement",
+  "mitre_techniques": ["T1021.001"],
+  "mitre_technique_names": ["Remote Services: Remote Desktop Protocol"],
+  "detected_at": "2026-06-13T02:47:19Z",
+  "status": "new",
+  "customer_id": "cust-initech-003",
+  "raw": {
+    "src_ip": "10.60.12.34",
+    "src_host": "INITECH-HR-09",
+    "dest_ip": "10.60.0.5",
+    "dest_host": "FILESRV01",
+    "username": "INITECH\\administrator",
+    "logon_type": 10,
+    "event_id": 4624,
+    "port": 3389,
+    "logon_time": "2026-06-13T02:47:05Z",
+    "business_hours": false,
+    "first_rdp_between_pair": true,
+    "session_duration_minutes": 38
+  },
+  "evidence": [
+    "Interactive RDP logon (type 10, event 4624) from INITECH-HR-09 (10.60.12.34) to FILESRV01 (10.60.0.5) at 02:47:05 UTC.",
+    "The privileged account INITECH\\administrator was used outside business hours.",
+    "This is the first observed RDP session between this host pair in the 90-day baseline.",
+    "An HR workstation initiating RDP to a file server is inconsistent with normal access patterns."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["10.60.12.34", "10.60.0.5"],
+      "domains": [],
+      "hashes": [],
+      "users": ["INITECH\\administrator"],
+      "hosts": ["INITECH-HR-09", "FILESRV01"]
+    }
+  }
+}

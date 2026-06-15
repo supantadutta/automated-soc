@@ -1,0 +1,39 @@
+{
+  "alert_id": "ALRT-2026-0020",
+  "source_tool": "Elastic",
+  "alert_name": "Lateral Movement via SMB - Admin Share Access",
+  "severity": "high",
+  "category": "Lateral Movement",
+  "mitre_techniques": ["T1021.002", "T1570"],
+  "mitre_technique_names": ["Remote Services: SMB/Windows Admin Shares", "Lateral Tool Transfer"],
+  "detected_at": "2026-06-13T19:05:09Z",
+  "status": "new",
+  "customer_id": "cust-initech-003",
+  "raw": {
+    "source": { "ip": "10.20.5.7", "host": { "name": "FIN-WKS-03" } },
+    "destination": { "ip": "10.20.5.32", "host": { "name": "HR-SRV-02" } },
+    "user": { "name": "admin-ops", "domain": "INITECH" },
+    "share": "ADMIN$",
+    "service_created": "PSEXESVC",
+    "logon_type": 3,
+    "transferred_file": "C:\\Windows\\svc-update.exe",
+    "event_codes": [5145, 7045, 4624],
+    "detail": "Access to ADMIN$ share on HR-SRV-02 from FIN-WKS-03 with PsExec-like service creation"
+  },
+  "evidence": [
+    "User admin-ops authenticated from FIN-WKS-03 (10.20.5.7) to HR-SRV-02 (10.20.5.32) over SMB using network logon (type 3).",
+    "Access to the ADMIN$ administrative share was followed by creation of a service named PSEXESVC (event 7045), a common PsExec signature.",
+    "A binary svc-update.exe was written to C:\\Windows on the destination, consistent with lateral tool transfer.",
+    "The sequence of events 5145 (share access), 7045 (service install), and 4624 (logon) within seconds indicates remote execution rather than interactive admin work.",
+    "Pending validation: whether admin-ops was performing an authorized maintenance task during a change window."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["10.20.5.7", "10.20.5.32"],
+      "domains": [],
+      "hashes": [],
+      "users": ["admin-ops"],
+      "hosts": ["FIN-WKS-03", "HR-SRV-02"]
+    }
+  }
+}

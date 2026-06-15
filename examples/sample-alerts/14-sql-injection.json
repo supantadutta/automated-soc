@@ -1,0 +1,41 @@
+{
+  "alert_id": "ALRT-2026-0014",
+  "source_tool": "ModSecurity WAF",
+  "alert_name": "SQL Injection Attempt",
+  "severity": "high",
+  "category": "Initial Access",
+  "mitre_techniques": ["T1190"],
+  "mitre_technique_names": ["Exploit Public-Facing Application"],
+  "detected_at": "2026-06-10T20:17:58Z",
+  "status": "new",
+  "customer_id": "cust-globex-002",
+  "raw": {
+    "src_ip": "203.0.113.88",
+    "geo": {"country": "RU", "city": "Moscow", "asn": "AS64504"},
+    "dest_host": "portal.globex.com",
+    "dest_ip": "10.40.6.12",
+    "http_method": "POST",
+    "request_uri": "/api/login",
+    "sanitized_payload": "username=' OR '1'='1' -- &password=x",
+    "user_agent": "sqlmap/1.8",
+    "response_code": 403,
+    "modsec_rule_id": 942100,
+    "modsec_message": "SQL Injection Attack Detected via libinjection",
+    "blocked": true
+  },
+  "evidence": [
+    "POST to portal.globex.com/api/login contained a tautology-based SQLi payload (' OR '1'='1' --).",
+    "ModSecurity rule 942100 (libinjection) matched and the request was blocked with HTTP 403.",
+    "User-agent sqlmap/1.8 indicates use of an automated SQL injection tool.",
+    "Source IP 203.0.113.88 geolocates to Moscow, RU (AS64504)."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["203.0.113.88", "10.40.6.12"],
+      "domains": ["portal.globex.com"],
+      "hashes": [],
+      "users": [],
+      "hosts": []
+    }
+  }
+}

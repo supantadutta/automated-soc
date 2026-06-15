@@ -1,0 +1,38 @@
+{
+  "alert_id": "ALRT-2026-0009",
+  "source_tool": "Elastic Security",
+  "alert_name": "Base64 Encoded PowerShell Command",
+  "severity": "high",
+  "category": "Defense Evasion",
+  "mitre_techniques": ["T1027", "T1059.001"],
+  "mitre_technique_names": ["Obfuscated Files or Information", "Command and Scripting Interpreter: PowerShell"],
+  "detected_at": "2026-06-12T13:50:02Z",
+  "status": "new",
+  "customer_id": "cust-initech-003",
+  "raw": {
+    "host": "INITECH-DEV-22",
+    "host_ip": "10.60.14.88",
+    "username": "INITECH\\jbishop",
+    "process": "powershell.exe",
+    "parent_process": "cmd.exe",
+    "command_line": "powershell.exe -EncodedCommand VGhpcyBpcyBhIGhhcm1sZXNzIHNhbXBsZSBwYXlsb2FkIGZvciBTT0MgZGVtbyBwdXJwb3Nlcw==",
+    "decoded_preview": "This is a harmless sample payload for SOC demo purposes",
+    "encoding": "base64-utf16le",
+    "flags": ["-EncodedCommand", "-NonInteractive"]
+  },
+  "evidence": [
+    "powershell.exe was invoked with -EncodedCommand on INITECH-DEV-22, indicating obfuscated input.",
+    "The base64 blob decoded to a benign demo string, but encoded command usage is itself anomalous for this user.",
+    "Parent process was cmd.exe with -NonInteractive set, consistent with automated/scripted execution.",
+    "Encoding scheme observed was base64 over UTF-16LE, the PowerShell default for -EncodedCommand."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["10.60.14.88"],
+      "domains": [],
+      "hashes": [],
+      "users": ["INITECH\\jbishop"],
+      "hosts": ["INITECH-DEV-22"]
+    }
+  }
+}

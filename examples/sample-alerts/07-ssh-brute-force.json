@@ -1,0 +1,39 @@
+{
+  "alert_id": "ALRT-2026-0007",
+  "source_tool": "sshd/auth logs",
+  "alert_name": "SSH Brute Force",
+  "severity": "medium",
+  "category": "Credential Access",
+  "mitre_techniques": ["T1110.001"],
+  "mitre_technique_names": ["Brute Force: Password Guessing"],
+  "detected_at": "2026-06-07T19:33:40Z",
+  "status": "new",
+  "customer_id": "cust-acme-001",
+  "raw": {
+    "src_ip": "203.0.113.77",
+    "geo": {"country": "BR", "city": "Sao Paulo", "asn": "AS64502"},
+    "dest_ip": "10.20.5.18",
+    "dest_host": "web-prod-02",
+    "port": 22,
+    "failed_attempts": 1893,
+    "usernames_tried": ["root", "admin", "ubuntu", "git", "oracle", "postgres"],
+    "window_minutes": 22,
+    "successful_login": false,
+    "sample_log": "Failed password for invalid user oracle from 203.0.113.77 port 51234 ssh2"
+  },
+  "evidence": [
+    "1,893 failed SSH password attempts from 203.0.113.77 to web-prod-02 (10.20.5.18) over 22 minutes.",
+    "Attempts cycled through common usernames including root, admin, ubuntu, git, oracle, and postgres.",
+    "No successful authentication was recorded.",
+    "Source IP 203.0.113.77 geolocates to Sao Paulo, BR (AS64502) and is not on any allowlist."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["203.0.113.77", "10.20.5.18"],
+      "domains": [],
+      "hashes": [],
+      "users": ["root", "oracle"],
+      "hosts": ["web-prod-02"]
+    }
+  }
+}

