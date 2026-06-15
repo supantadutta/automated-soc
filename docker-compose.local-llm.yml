@@ -1,0 +1,37 @@
+# Optional Ollama local-LLM profile.
+#   docker compose -f docker-compose.yml -f docker-compose.local-llm.yml up
+# Then set in .env:
+#   DEFAULT_AI_PROVIDER=ollama
+#   OLLAMA_BASE_URL=http://ollama:11434
+#   OLLAMA_MODEL=llama3.1
+# Pull a model once the container is up:
+#   docker exec -it autosoc-command-center-ollama-1 ollama pull llama3.1
+name: autosoc-command-center
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollamadata:/root/.ollama
+    # Uncomment to enable GPU passthrough (requires nvidia-container-toolkit):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  backend:
+    environment:
+      DEFAULT_AI_PROVIDER: ollama
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: llama3.1
+      AI_FALLBACK_CHAIN: ollama,mock
+    depends_on:
+      - ollama
+
+volumes:
+  ollamadata:
