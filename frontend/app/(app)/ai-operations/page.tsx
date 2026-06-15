@@ -6,9 +6,9 @@ import { api } from '@/lib/api';
 import { StatCard, SectionTitle } from '@/components/ui/misc';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { DonutChart, HorizontalBarChart } from '@/components/charts/charts';
+import { DonutChart, HorizontalBarChart, AreaTrendChart, MultiLineChart } from '@/components/charts/charts';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { LoadingState } from '@/components/ui/states';
+import { LoadingState, EmptyState } from '@/components/ui/states';
 import { formatCost, formatRelative } from '@/lib/utils';
 
 export default function AIOperationsPage() {
@@ -39,10 +39,55 @@ export default function AIOperationsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card><CardHeader><CardTitle>Cost Over Time</CardTitle></CardHeader>
+          <CardContent><AreaTrendChart data={d.timeseries} xKey="date" yKey="cost" color="#f59e0b" label="No AI cost recorded yet" /></CardContent></Card>
+        <Card><CardHeader><CardTitle>Latency & Volume Over Time</CardTitle></CardHeader>
+          <CardContent>
+            <MultiLineChart data={d.timeseries} xKey="date" label="No AI runs yet"
+              lines={[{ key: 'avg_latency_ms', color: '#0ea5e9', name: 'Avg latency (ms)' }, { key: 'runs', color: '#22c55e', name: 'Runs' }]} />
+          </CardContent></Card>
         <Card><CardHeader><CardTitle>Requests by Provider</CardTitle></CardHeader>
           <CardContent><HorizontalBarChart data={byProvider} categoryKey="provider" valueKey="runs" /></CardContent></Card>
         <Card><CardHeader><CardTitle>Local vs Cloud</CardTitle></CardHeader>
           <CardContent><DonutChart data={localCloud} nameKey="name" valueKey="count" /></CardContent></Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card><CardHeader><CardTitle>Top Expensive Investigations</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow><TableHead>Investigation</TableHead><TableHead>Alert</TableHead><TableHead>Runs</TableHead><TableHead>Cost</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {(d.top_expensive_investigations || []).map((t: any) => (
+                  <TableRow key={t.investigation_id}>
+                    <TableCell>#{t.investigation_id}</TableCell>
+                    <TableCell className="text-muted-foreground">alert #{t.alert_id ?? '—'}</TableCell>
+                    <TableCell className="tabular-nums">{t.runs}</TableCell>
+                    <TableCell className="tabular-nums">{formatCost(t.cost)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            {(d.top_expensive_investigations?.length ?? 0) === 0 && <p className="p-4 text-sm text-muted-foreground">No cost recorded (local/mock runs are free).</p>}
+          </CardContent></Card>
+        <Card><CardHeader><CardTitle>Failed Calls & Fallback Events</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {(d.failed_calls || []).map((f: any) => (
+              <div key={`f${f.id}`} className="flex items-center justify-between rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm">
+                <span><Badge variant="danger">failed</Badge> {f.provider} · {f.prompt_type || '—'}</span>
+                <span className="max-w-[55%] truncate text-xs text-muted-foreground" title={f.error_message}>{f.error_message}</span>
+              </div>
+            ))}
+            {(d.fallback_events || []).map((f: any) => (
+              <div key={`fb${f.id}`} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+                <span><Badge variant="warning">fallback</Badge> {f.provider} {f.is_local && <Badge variant="outline">local</Badge>}</span>
+                <span className="text-xs text-muted-foreground">{formatRelative(f.created_at)}</span>
+              </div>
+            ))}
+            {(d.failed_calls?.length ?? 0) === 0 && (d.fallback_events?.length ?? 0) === 0 && (
+              <p className="text-sm text-muted-foreground">No failures or fallback events. 🎉</p>
+            )}
+          </CardContent></Card>
       </div>
 
       <Card><CardHeader><CardTitle>Provider Health</CardTitle></CardHeader>

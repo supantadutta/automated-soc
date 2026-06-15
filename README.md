@@ -93,6 +93,14 @@ See [`docs/architecture.md`](docs/architecture.md) for the full multi-agent pipe
 
 Switch provider in the UI (**Settings → Providers**, or the provider selector on the Alert Detail pipeline bar) or via `DEFAULT_AI_PROVIDER` / `AI_FALLBACK_CHAIN` in `.env`. See [`docs/ai-providers.md`](docs/ai-providers.md).
 
+### 🧠 AI Gateway
+
+- **Model Capability Registry** — per-model `supports_json/tools/vision/streaming`, `max_context_tokens`, per-token cost, `privacy_level`, `latency_class`, `recommended_for`. Single source of truth for cost and capability-aware model selection.
+- **Routing policies** — `auto`, `cost_optimized`, `quality_optimized`, `privacy_optimized`, `local_only`, `speed_optimized`, `critical_alert_mode`, `offline_demo`. Settable per-org at runtime (`PUT /ai/config`, audited).
+- **Structured-output reliability** — JSON repair → schema coercion → stricter-prompt retry → mock fallback → completeness QA (weak/incomplete output is forced to *Needs Review*).
+- **Prompt management** — versioned prompt templates (list/create/activate/evaluate).
+- **Observability** — cost/latency time-series, failed-call and fallback-event logs, top-expensive investigations, local-vs-cloud split on the **AI Operations** dashboard.
+
 ### 🔒 Local / Private LLM support
 
 Run **100% offline** with no data leaving your environment:
@@ -248,7 +256,7 @@ SaaS tiers (Analyst / Team / MSSP) priced per analyst seat + alert volume, with 
 
 ## 📚 Documentation
 
-[Architecture](docs/architecture.md) · [AI Providers](docs/ai-providers.md) · [Local LLM Setup](docs/local-llm-setup.md) · [API](docs/api.md) · [Security](docs/security.md) · [Deployment](docs/deployment.md) · [Demo Flow](docs/demo-flow.md) · [Monetization](docs/monetization.md)
+[Architecture](docs/architecture.md) · [AI Providers](docs/ai-providers.md) · [Local LLM Setup](docs/local-llm-setup.md) · [API](docs/api.md) · [cURL Examples](docs/curl-examples.md) · [Security](docs/security.md) · [Deployment](docs/deployment.md) · [Demo Flow](docs/demo-flow.md) · [Troubleshooting](docs/troubleshooting.md) · [Monetization](docs/monetization.md)
 
 ---
 

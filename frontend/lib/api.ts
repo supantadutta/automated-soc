@@ -211,6 +211,19 @@ export const api = {
     ),
   // Full /ai/providers object (default provider, routing mode, fallback chain).
   aiProvidersInfo: () => apiFetch<any>('/ai/providers'),
+  aiCapabilities: () => apiFetch<any>('/ai/capabilities'),
+  aiModels: () => apiFetch<any>('/ai/models'),
+  ollamaModels: () => apiFetch<any>('/ai/ollama/models'),
+  getAiConfig: () => apiFetch<any>('/ai/config'),
+  updateAiConfig: (body: { default_provider?: string; routing_mode?: string; fallback_enabled?: boolean }) =>
+    apiFetch<any>('/ai/config', { method: 'PUT', body }),
+  listPrompts: () => apiFetch<any[]>('/ai/prompts'),
+  createPrompt: (body: { prompt_type: string; template: string; name?: string }) =>
+    apiFetch<any>('/ai/prompts', { method: 'POST', body }),
+  activatePrompt: (id: number) =>
+    apiFetch<any>(`/ai/prompts/${id}/activate`, { method: 'POST' }),
+  testPrompt: (id: number) =>
+    apiFetch<any>(`/ai/prompts/${id}/test`, { method: 'POST' }),
   providersHealth: () =>
     apiFetch<any>('/ai/providers/health').then((d) =>
       asList<ProviderHealth>(d)
