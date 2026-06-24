@@ -64,6 +64,22 @@ def apply_rules(result: dict[str, Any], context: dict[str, Any]) -> dict[str, An
         confidence = min(confidence, 45)
         notes.append("Downgraded to Needs Review: insufficient evidence to assert verdict.")
 
+    # Rule 4: analyst feedback on correlated alerts adjusts confidence (the loop).
+    signal = context.get("feedback_signal", "none")
+    if signal == "benign_leaning" and not malicious:
+        if verdict == "True Positive":
+            confidence = max(0, confidence - 15)
+            notes.append("Confidence reduced: analysts previously marked similar alerts benign/FP.")
+        elif verdict == "Needs Review":
+            confidence = max(0, confidence - 5)
+            notes.append("Historical analyst feedback on similar alerts leans benign.")
+    elif signal == "malicious_leaning":
+        if verdict in {"True Positive", "Escalated"}:
+            confidence = min(100, confidence + 10)
+            notes.append("Confidence raised: analysts previously confirmed similar alerts malicious.")
+        elif verdict == "Needs Review" and strength >= 2:
+            notes.append("Historical analyst feedback on similar alerts leans malicious — prioritize review.")
+
     # Clamp confidence.
     confidence = max(0, min(100, confidence))
 

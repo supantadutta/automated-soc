@@ -24,9 +24,14 @@ class LoginRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
     role: str
     email: str
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
 
 
 class UserOut(BaseModel):
@@ -200,6 +205,31 @@ class AllowlistOut(BaseModel):
 class PromptPreviewRequest(BaseModel):
     prompt_type: str = "soc_investigation"
     sample_text: Optional[str] = None
+
+
+# ----------------------------------------------------------- Knowledge / SOPs
+class KnowledgeDocCreate(BaseModel):
+    title: str
+    content: str
+    doc_type: str = "sop"
+    customer_id: Optional[int] = None
+
+
+class KnowledgeDocOut(BaseModel):
+    id: int
+    title: str
+    doc_type: str
+    customer_id: Optional[int] = None
+    content: str
+
+    class Config:
+        from_attributes = True
+
+
+# --------------------------------------------------- Response & approvals
+class ApprovalDecision(BaseModel):
+    decision: str  # approved | rejected
+    note: Optional[str] = None
 
 
 class ProviderTestRequest(BaseModel):

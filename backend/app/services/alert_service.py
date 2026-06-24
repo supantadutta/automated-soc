@@ -4,8 +4,10 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.alert import STATUS_NEW, Alert
 
 
@@ -22,6 +24,13 @@ def create_alert(
     raw_format: str = "text",
     actor_id: int | None = None,
 ) -> Alert:
+    # Guard against oversized payloads (storage + AI token-cost / DoS vector).
+    if raw_payload and len(raw_payload) > settings.max_alert_payload_chars:
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            f"raw_payload exceeds {settings.max_alert_payload_chars} characters",
+        )
+
     raw_json: dict[str, Any] | None = None
     detected_format = raw_format
     text = raw_payload

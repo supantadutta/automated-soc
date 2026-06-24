@@ -23,6 +23,7 @@ class TenantContext:
         return self.role == "platform_admin"
 
     def can_write(self) -> bool:
+        """Analysts and above can run investigations and submit alerts/feedback."""
         return self.role in {
             "platform_admin",
             "organization_admin",
@@ -30,7 +31,13 @@ class TenantContext:
             "analyst",
         }
 
+    def can_manage(self) -> bool:
+        """SOC managers and above can manage customers, allowlists, SOPs and
+        approve/reject containment actions."""
+        return self.role in {"platform_admin", "organization_admin", "soc_manager"}
+
     def can_manage_org(self) -> bool:
+        """Org admins and above manage org-wide settings (AI config, users)."""
         return self.role in {"platform_admin", "organization_admin"}
 
 

@@ -21,9 +21,14 @@ def get_current_user(
     payload = decode_access_token(token)
     if not payload:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
+    if payload.get("type") not in (None, "access"):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Wrong token type")
     user = db.get(User, int(payload.get("sub", 0)))
     if not user or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found or inactive")
+    # Token revocation: a logout / password change bumps token_version.
+    if payload.get("ver", user.token_version) != user.token_version:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Token revoked")
     return user
 
 
@@ -36,6 +41,12 @@ def get_context(user: User = Depends(get_current_user)) -> TenantContext:
 def require_write(ctx: TenantContext = Depends(get_context)) -> TenantContext:
     if not ctx.can_write():
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Insufficient permissions (write)")
+    return ctx
+
+
+def require_manager(ctx: TenantContext = Depends(get_context)) -> TenantContext:
+    if not ctx.can_manage():
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Requires SOC manager or above")
     return ctx
 
 

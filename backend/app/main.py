@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import ALL_ROUTERS
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
+from app.core.ratelimit import RateLimitMiddleware
 from app.db.base import Base
 from app.db.session import engine
 
@@ -44,6 +45,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RateLimitMiddleware)
 
 
 @app.get("/health", tags=["system"])

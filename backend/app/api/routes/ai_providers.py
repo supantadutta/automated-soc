@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.ai.capabilities import all_capabilities, get_capability
 from app.ai.providers import LOCAL_PROVIDERS, PROVIDER_REGISTRY, build_provider
 from app.ai.prompts import get_system_prompt, investigation_user_prompt, parser_user_prompt
-from app.ai.router import ROUTING_POLICIES
+from app.ai.router import ROUTING_POLICIES, select_model
 from app.api.deps import get_context, require_org_admin, require_write
 from app.core.config import settings
 from app.core.tenancy import TenantContext
@@ -36,6 +36,12 @@ class PromptVersionCreate(BaseModel):
     prompt_type: str
     template: str
     name: str | None = None
+
+
+class StreamChatRequest(BaseModel):
+    prompt: str
+    system: str | None = None
+    provider: str | None = None
 
 # Which env keys indicate a provider is configured.
 CONFIG_KEYS = {
@@ -96,6 +102,10 @@ def list_providers(db: Session = Depends(get_db), ctx: TenantContext = Depends(g
             "recommended_for": cap.recommended_for,
         })
     runtime = ai_config_service.get_runtime_config(db, ctx.organization_id)
+    # Capability-aware recommendation per provider for the current routing mode
+    # (advisory only — operators still control the configured model).
+    for p in out:
+        p["recommended_model"] = select_model(p["provider"], runtime["routing_mode"], None, None)
     return {
         "providers": out,
         "default_provider": runtime["default_provider"],
@@ -291,3 +301,37 @@ def activate_prompt(prompt_id: int, db: Session = Depends(get_db),
 def test_prompt(prompt_id: int, db: Session = Depends(get_db),
                 ctx: TenantContext = Depends(get_context)):
     return prompt_service.evaluate(db, ctx.organization_id, prompt_id)
+
+
+# --------------------------------------------------------------- streaming
+@router.post("/chat/stream")
+async def chat_stream(payload: StreamChatRequest, db: Session = Depends(get_db),
+                      ctx: TenantContext = Depends(get_context)):
+    """Stream an AI response over SSE. Honors the org's default provider and
+    redacts PII before any external provider call."""
+    import json as _json
+
+    from fastapi.responses import StreamingResponse
+
+    from app.ai.schemas import AIRequest
+    from app.utils.redaction import redact_pii
+
+    runtime = ai_config_service.get_runtime_config(db, ctx.organization_id)
+    provider_key = payload.provider or runtime["default_provider"]
+    is_local = provider_key in LOCAL_PROVIDERS
+
+    prompt = payload.prompt if is_local else redact_pii(payload.prompt)
+    request = AIRequest.simple(
+        payload.system or "You are a concise SOC analyst assistant.", prompt, max_tokens=512,
+    )
+
+    async def event_gen():
+        try:
+            provider = build_provider(provider_key)
+            async for chunk in provider.stream(request):
+                yield "data: " + _json.dumps({"text": chunk}) + "\n\n"
+        except Exception as exc:  # noqa: BLE001 — surface a clean error event
+            yield "data: " + _json.dumps({"error": str(exc)[:200]}) + "\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_gen(), media_type="text/event-stream")

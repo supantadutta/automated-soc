@@ -7,8 +7,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.ai.memory import memory
 from app.models.customer import CustomerAllowlist, KnownFalsePositive
-from app.models.misc import KnowledgeDocument
 
 
 class ContextRetrievalAgent:
@@ -50,19 +50,27 @@ class ContextRetrievalAgent:
                 if fp.alert_name and fp.alert_name.lower() in (normalized.get("alert_name") or "").lower():
                     prior_fp = True
 
-        sops = []
-        if customer_id:
-            docs = db.execute(
-                select(KnowledgeDocument).where(
-                    KnowledgeDocument.organization_id == organization_id,
-                    KnowledgeDocument.customer_id == customer_id,
-                ).limit(5)
-            ).scalars().all()
-            sops = [{"title": d.title, "excerpt": d.content[:200]} for d in docs]
+        # Semantic retrieval from vector memory: relevant SOPs and similar past
+        # investigations (the RAG layer).
+        query = " ".join(str(normalized.get(k)) for k in
+                         ["alert_name", "src_ip", "username", "hostname", "domain"]
+                         if normalized.get(k))
+        sops = [
+            {"title": (h.meta or {}).get("title", "SOP"), "excerpt": h.text[:240], "score": h.score}
+            for h in memory.search(db, organization_id=organization_id, query=query, k=4,
+                                   customer_id=customer_id, source_types=["sop"])
+        ]
+        similar_cases = [
+            {"summary": h.text[:240], "verdict": (h.meta or {}).get("verdict"),
+             "alert_id": (h.meta or {}).get("alert_id"), "score": h.score}
+            for h in memory.search(db, organization_id=organization_id, query=query, k=4,
+                                   source_types=["investigation"])
+        ]
 
         return {
             "allowlist_hits": allowlist_hits,
             "allowlisted": bool(allowlist_hits),
             "prior_false_positive": prior_fp,
             "customer_sops": sops,
+            "similar_cases": similar_cases,
         }

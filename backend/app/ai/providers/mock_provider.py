@@ -47,6 +47,13 @@ class MockAIProvider(AIProvider):
         )
         return self._finalize(text, self.model or "mock-soc-1", usage, started)
 
+    async def stream(self, request: AIRequest):
+        """Stream the mock response word-by-word for a realistic UX offline."""
+        response = await self.generate(request)
+        words = response.text.split(" ")
+        for i, w in enumerate(words):
+            yield (w if i == 0 else " " + w)
+
     async def health_check(self) -> ProviderHealth:
         return ProviderHealth(
             provider=self.name,
@@ -146,6 +153,12 @@ class MockAIProvider(AIProvider):
         if correlated >= 1 and verdict == "True Positive":
             confidence = min(95, confidence + 5)
             facts.append(f"Activity correlates with {correlated} related prior alert(s).")
+
+        feedback_signal = ctx.get("feedback_signal", "none")
+        if feedback_signal == "benign_leaning":
+            facts.append("Analysts previously marked similar correlated alerts as benign / false positive.")
+        elif feedback_signal == "malicious_leaning":
+            facts.append("Analysts previously confirmed similar correlated alerts as malicious / escalated.")
 
         # Guardrail: never assert TP/FP without enough evidence
         if verdict in {"True Positive", "False Positive"} and evidence_strength < 2 and not malicious_iocs:

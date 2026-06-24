@@ -87,6 +87,15 @@ class AIProvider(ABC):
         response = await self.generate(request)
         return extract_json(response.text)
 
+    async def stream(self, request: AIRequest):
+        """Yield response text incrementally.
+
+        Default implementation falls back to a single non-streamed chunk;
+        providers that support server-side streaming override this.
+        """
+        response = await self.generate(request)
+        yield response.text
+
     @abstractmethod
     async def health_check(self) -> ProviderHealth:  # pragma: no cover
         ...

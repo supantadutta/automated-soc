@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     jwt_secret: str = Field(default="change-me-in-production-please-32-bytes-min")
     jwt_algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=60 * 24)
+    refresh_token_expire_minutes: int = Field(default=60 * 24 * 14)
+    secret_encryption_key: str = Field(default="")
+
+    # --- Rate limiting ---
+    rate_limit_enabled: bool = Field(default=True)
+    rate_limit_per_minute: int = Field(default=120)
+    max_alert_payload_chars: int = Field(default=100_000)
 
     seed_admin_email: str = Field(default="admin@autosoc.local")
     seed_admin_password: str = Field(default="Admin123!")

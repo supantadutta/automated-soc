@@ -107,6 +107,33 @@ class OpenAICompatibleProvider(AIProvider):
             finish_reason=choice.get("finish_reason"),
         )
 
+    async def stream(self, request: AIRequest):
+        """Stream tokens via SSE (OpenAI-compatible ``stream: true``)."""
+        if not self.configured:
+            raise AIProviderError(self.name, "provider not configured")
+        import json as _json
+
+        payload = self._payload(request)
+        payload["stream"] = True
+        async with httpx.AsyncClient(timeout=request.timeout) as client:
+            async with client.stream("POST", self._url(), headers=self._headers(), json=payload) as resp:
+                if resp.status_code >= 400:
+                    await resp.aread()
+                    raise AIProviderError(self.name, f"HTTP {resp.status_code}", resp.status_code)
+                async for line in resp.aiter_lines():
+                    if not line or not line.startswith("data:"):
+                        continue
+                    data = line[5:].strip()
+                    if data == "[DONE]":
+                        break
+                    try:
+                        obj = _json.loads(data)
+                    except ValueError:
+                        continue
+                    delta = (obj.get("choices") or [{}])[0].get("delta", {}).get("content")
+                    if delta:
+                        yield delta
+
     async def health_check(self) -> ProviderHealth:
         if not self.configured:
             return ProviderHealth(

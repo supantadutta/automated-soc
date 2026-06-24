@@ -88,6 +88,37 @@ def seed(db: Session) -> None:
 
     seed_default_prompts(db, org.id)
 
+    # --- Customer SOPs (indexed into vector memory for RAG retrieval) ---
+    from app.ai.memory import memory
+    from app.models.misc import KnowledgeDocument
+
+    sops = [
+        (customers["Globex"].id, "Globex Authentication SOP",
+         "Globex runs a sanctioned vulnerability scanner from 192.168.143.84. "
+         "Authentication spikes from this host during business hours are expected. "
+         "Confirm the scan window before escalating brute-force or AD auth alerts."),
+        (customers["Globex"].id, "Globex Web Application SOP",
+         "Globex public portals sit behind an F5 WAF. WAF-blocked SQLi/XSS attempts "
+         "are routine internet noise; escalate only on signs of successful exploitation "
+         "or WAF bypass."),
+        (customers["Initech"].id, "Initech Privileged Access SOP",
+         "Initech admin-ops performs scheduled maintenance via PsExec to HR and FIN "
+         "servers on Tuesdays 02:00-04:00. Lateral-movement alerts in that window may be "
+         "authorized; verify the change ticket before containment."),
+        (customers["Initech"].id, "Initech C2 Response SOP",
+         "Any confirmed beaconing to a known-bad C2 domain is treated as a true positive. "
+         "Validate the host in EDR and raise an approval request for isolation."),
+    ]
+    if not db.execute(select(KnowledgeDocument).where(KnowledgeDocument.organization_id == org.id)).first():
+        for cust_id, title, content in sops:
+            doc = KnowledgeDocument(organization_id=org.id, customer_id=cust_id, doc_type="sop",
+                                    title=title, content=content, created_by=admin.id)
+            db.add(doc)
+            db.flush()
+            memory.add(db, organization_id=org.id, customer_id=cust_id, source_type="sop",
+                       source_id=f"doc-{doc.id}", text=f"{title}\n{content}", meta={"title": title})
+        logger.info("Seeded %d customer SOPs into vector memory", len(sops))
+
     # --- Sample alerts ---
     from app.models.alert import Alert
 

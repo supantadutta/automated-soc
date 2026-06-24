@@ -10,6 +10,7 @@ os.environ.setdefault("DEFAULT_AI_PROVIDER", "mock")
 os.environ.setdefault("AI_FALLBACK_CHAIN", "mock")
 os.environ.setdefault("AI_ROUTING_MODE", "offline")
 os.environ.setdefault("JWT_SECRET", "test-secret-key-test-secret-key-32b")
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 
 import pytest
 from fastapi.testclient import TestClient

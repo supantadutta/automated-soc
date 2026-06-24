@@ -107,7 +107,11 @@ async def investigate_alert(
         "allowlist_hits": context_info["allowlist_hits"],
         "prior_false_positive": context_info["prior_false_positive"],
         "correlation_count": correlation["correlation_count"],
+        "prior_verdicts": correlation.get("prior_verdicts", []),
+        "feedback_summary": correlation.get("feedback_summary", {}),
+        "feedback_signal": correlation.get("feedback_signal", "none"),
         "customer_sops": context_info["customer_sops"],
+        "similar_cases": context_info.get("similar_cases", []),
         "mitre_baseline": mitre_baseline,
     }
 
@@ -165,4 +169,20 @@ async def investigate_alert(
 
     db.commit()
     db.refresh(investigation)
+
+    # Index this investigation into vector memory so future, similar alerts can
+    # retrieve it (case memory / RAG).
+    from app.ai.memory import memory
+
+    summary_text = " ".join(filter(None, [
+        normalized.alert_name if normalized else alert.title,
+        alert.category or "", result.get("executive_summary", ""),
+        f"verdict {result.get('verdict')}",
+    ]))
+    memory.add(
+        db, organization_id=alert.organization_id, customer_id=alert.customer_id,
+        source_type="investigation", source_id=str(investigation.id), text=summary_text,
+        meta={"alert_id": alert.id, "verdict": result.get("verdict"),
+              "confidence": result.get("confidence_score", 0)},
+    )
     return investigation

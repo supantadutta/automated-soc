@@ -7,8 +7,10 @@ from app.api.routes import (
     customers,
     dashboard,
     investigations,
+    knowledge,
     playbooks,
     reports,
+    response,
 )
 
 ALL_ROUTERS = [
@@ -22,4 +24,6 @@ ALL_ROUTERS = [
     playbooks.router,
     allowlists.router,
     audit.router,
+    knowledge.router,
+    response.router,
 ]

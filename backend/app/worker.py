@@ -24,7 +24,19 @@ celery_app.conf.update(task_track_started=True, task_time_limit=300)
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    """Run an async coroutine from a synchronous Celery worker thread.
+
+    Celery worker threads have no running event loop, so we create a fresh one
+    per call (``asyncio.get_event_loop`` is deprecated for this and raises in
+    worker threads on 3.10+).
+    """
+    loop = asyncio.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+        return loop.run_until_complete(coro)
+    finally:
+        asyncio.set_event_loop(None)
+        loop.close()
 
 
 @celery_app.task(name="autosoc.process_alert")

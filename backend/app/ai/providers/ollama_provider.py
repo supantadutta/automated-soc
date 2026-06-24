@@ -69,6 +69,33 @@ class OllamaProvider(AIProvider):
         )
         return self._finalize(text, model or "ollama", usage, started, raw={})
 
+    async def stream(self, request: AIRequest):
+        """Stream tokens from Ollama's native NDJSON chat endpoint."""
+        import json as _json
+
+        model = request.model or self.model
+        payload: dict[str, Any] = {
+            "model": model,
+            "messages": request.to_openai_messages(),
+            "stream": True,
+            "options": {"temperature": request.temperature, "num_predict": request.max_tokens},
+        }
+        async with httpx.AsyncClient(timeout=request.timeout) as client:
+            async with client.stream("POST", f"{self.base_url}/api/chat", json=payload) as resp:
+                if resp.status_code >= 400:
+                    await resp.aread()
+                    raise AIProviderError(self.name, f"HTTP {resp.status_code}")
+                async for line in resp.aiter_lines():
+                    if not line:
+                        continue
+                    try:
+                        obj = _json.loads(line)
+                    except ValueError:
+                        continue
+                    chunk = (obj.get("message") or {}).get("content")
+                    if chunk:
+                        yield chunk
+
     async def health_check(self) -> ProviderHealth:
         started = time.perf_counter()
         try:

@@ -54,14 +54,18 @@ def normalize_mode(mode: str | None) -> str:
     return ROUTING_POLICIES.get((mode or "auto").lower(), "auto")
 
 
-def select_model(provider: str, mode: str, requested: str | None = None) -> str | None:
-    """Capability-aware model selection for a provider given the routing mode.
+def select_model(provider: str, mode: str, requested: str | None = None,
+                 configured: str | None = None) -> str | None:
+    """Capability-aware model *recommendation* for a provider + routing mode.
 
-    Honors an explicit request, otherwise picks a model from the capability
-    registry whose ``recommended_for`` matches the routing intent.
+    Precedence: explicit request > operator-configured model > registry
+    recommendation. This is surfaced to the UI as a suggestion; the router never
+    auto-applies it over a configured model (see ``AIRouter.run``).
     """
     if requested:
         return requested
+    if configured:
+        return configured
     candidates = models_for_provider(provider)
     if not candidates:
         return None
@@ -194,10 +198,12 @@ class AIRouter:
             attempted.append(provider_key)
             started = time.perf_counter()
             try:
-                # Capability-aware model selection: honor an explicit model on the
-                # first hop, otherwise pick a model that suits the routing intent.
-                requested_model = request.model if idx == 0 else None
-                model = select_model(provider_key, self.mode, requested_model)
+                # Honor an explicitly requested model on the first hop; otherwise
+                # let the provider use its operator-configured model (env/UI).
+                # Capability-aware suggestions are surfaced via ``select_model``
+                # for the UI but are never auto-applied here, so a configured
+                # OPENAI_MODEL etc. is respected.
+                model = request.model if idx == 0 else None
                 provider = build_provider(provider_key, model)
                 response = await provider.generate(req)
                 self._record(
@@ -212,7 +218,7 @@ class AIRouter:
                 )
             except Exception as exc:  # noqa: BLE001 - normalize & continue chain
                 latency = int((time.perf_counter() - started) * 1000)
-                msg = exc.provider_message if isinstance(exc, AIProviderError) else str(exc)
+                msg = str(exc)
                 logger.warning("provider %s failed: %s", provider_key, msg)
                 self._record_failure(
                     db, provider_key, msg, latency, request.prompt_type,
@@ -265,11 +271,3 @@ class AIRouter:
             is_local=provider_key in LOCAL_PROVIDERS, created_by=created_by,
         ))
         db.commit()
-
-
-# AIProviderError convenience attribute used above.
-def _provider_message(self):  # pragma: no cover
-    return str(self)
-
-
-AIProviderError.provider_message = property(_provider_message)  # type: ignore[attr-defined]

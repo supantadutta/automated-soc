@@ -1,7 +1,7 @@
 """Identity, organization and RBAC models."""
 from __future__ import annotations
 
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, CreatedByMixin, TimestampMixin
@@ -46,6 +46,8 @@ class User(Base, TimestampMixin):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(64), default=ROLE_ANALYST, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Incremented on logout / password change to revoke previously issued tokens.
+    token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     organization: Mapped["Organization"] = relationship(back_populates="users")
 

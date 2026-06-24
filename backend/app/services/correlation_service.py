@@ -44,9 +44,11 @@ def correlate_alert(db: Session, alert: Alert, normalized: NormalizedAlert) -> d
             seen.add(key)
             deduped.append(m)
 
-    # Pull prior verdicts/feedback for correlated alerts.
+    # Pull prior verdicts and analyst feedback for correlated alerts so the
+    # feedback loop actually influences future investigations.
     correlated_alert_ids = list({m["alert_id"] for m in deduped})
     prior_verdicts: list[str] = []
+    feedback_summary: dict[str, int] = {}
     if correlated_alert_ids:
         invs = db.execute(
             select(Investigation).where(
@@ -56,6 +58,19 @@ def correlate_alert(db: Session, alert: Alert, normalized: NormalizedAlert) -> d
         ).scalars().all()
         prior_verdicts = [i.verdict for i in invs if i.verdict]
 
+        inv_ids = [i.id for i in invs]
+        if inv_ids:
+            fbs = db.execute(
+                select(Feedback).where(
+                    Feedback.organization_id == org,
+                    Feedback.investigation_id.in_(inv_ids),
+                )
+            ).scalars().all()
+            for fb in fbs:
+                feedback_summary[fb.label] = feedback_summary.get(fb.label, 0) + 1
+
+    signal = _feedback_signal(feedback_summary)
+
     alert.status = STATUS_CORRELATED
     db.commit()
 
@@ -64,4 +79,24 @@ def correlate_alert(db: Session, alert: Alert, normalized: NormalizedAlert) -> d
         "correlation_count": len(deduped),
         "prior_verdicts": prior_verdicts,
         "correlated_alert_ids": correlated_alert_ids,
+        "feedback_summary": feedback_summary,
+        "feedback_signal": signal,
     }
+
+
+# Labels that lean benign vs malicious for the feedback-influenced confidence.
+_BENIGN_LABELS = {"FP", "Benign", "Duplicate"}
+_MALICIOUS_LABELS = {"TP", "Escalated", "Customer Confirmed"}
+
+
+def _feedback_signal(summary: dict[str, int]) -> str:
+    """Aggregate analyst feedback on correlated alerts into a directional signal."""
+    if not summary:
+        return "none"
+    benign = sum(v for k, v in summary.items() if k in _BENIGN_LABELS)
+    malicious = sum(v for k, v in summary.items() if k in _MALICIOUS_LABELS)
+    if benign > malicious:
+        return "benign_leaning"
+    if malicious > benign:
+        return "malicious_leaning"
+    return "mixed"
