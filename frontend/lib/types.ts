@@ -1,14 +1,14 @@
 // Shared TypeScript types for AutoSOC Command Center
 
 export type Severity = 'Critical' | 'High' | 'Medium' | 'Low' | 'Informational';
+// Canonical verdicts returned by the backend investigation engine.
 export type Verdict =
   | 'True Positive'
   | 'False Positive'
-  | 'Benign'
-  | 'Suspicious'
-  | 'Malicious'
-  | 'Inconclusive'
-  | 'Escalate';
+  | 'Benign Authorized Activity'
+  | 'Duplicate'
+  | 'Needs Review'
+  | 'Escalated';
 export type AlertStatus =
   | 'new'
   | 'parsing'

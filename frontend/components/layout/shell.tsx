@@ -110,7 +110,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
               {me?.email}
             </span>
             <button
-              onClick={() => {
+              onClick={async () => {
+                // Revoke server-side (bumps token_version) then clear locally.
+                try { await api.logout(); } catch { /* token may already be invalid */ }
                 logout();
                 router.replace('/login');
               }}

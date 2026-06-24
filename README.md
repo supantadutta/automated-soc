@@ -3,6 +3,8 @@
 > **AI-powered SOC automation for alert triage, investigation, enrichment, reporting, and safe response guidance.**
 
 ![status](https://img.shields.io/badge/status-portfolio--ready-22c55e)
+![tests](https://img.shields.io/badge/tests-59%20backend%20%2B%20frontend-22c55e)
+![ci](https://img.shields.io/badge/CI-pytest%20%C2%B7%20alembic%20%C2%B7%20tsc%20%C2%B7%20build-0ea5e9)
 ![backend](https://img.shields.io/badge/backend-FastAPI%20%7C%20Python%203.11-009688)
 ![frontend](https://img.shields.io/badge/frontend-Next.js%2014%20%7C%20TypeScript-000000)
 ![ai](https://img.shields.io/badge/AI-13%20providers%20%2B%20local%20LLM-0ea5e9)
@@ -22,8 +24,11 @@ It runs **fully offline** with a built-in mock AI provider (zero API keys), and 
 - **IOC enrichment** — deterministic mock + VirusTotal/AbuseIPDB/OTX/GreyNoise/Shodan/GeoIP/WHOIS scaffolds.
 - **Case correlation** — same IP/user/host/alert-name, prior verdicts, analyst feedback.
 - **Customer context** — allowlists, known false positives, assets, service accounts, SOPs.
-- **Multi-agent AI** — intake, IOC, context, MITRE, investigation, report, detection-engineer, QA, privacy-guard, cost-optimizer agents.
-- **Evidence-based verdicts** — every verdict shows evidence + missing evidence; weak evidence → *Needs Review*.
+- **AI investigation pipeline** — intake, IOC, context-retrieval (RAG), MITRE, investigation, report, detection-engineer, QA, privacy-guard, cost-optimizer stages. *(The Investigation and QA stages call the LLM; the others are deterministic helpers/lookups — see [architecture](docs/architecture.md).)*
+- **Vector memory (RAG)** — past investigations and customer SOPs are embedded and retrieved by semantic similarity to inform new investigations.
+- **Closed feedback loop** — analyst TP/FP/Benign labels on correlated alerts measurably adjust future confidence.
+- **Human-approval workflow** — high-risk response actions require an explicit, audited approval; nothing is executed automatically.
+- **Evidence-based verdicts** — every verdict shows evidence + missing evidence; weak/incomplete output is forced to *Needs Review*.
 - **MITRE ATT&CK mapping** with confidence and rationale.
 - **Detection engineering** — Splunk SPL, CrowdStrike LogScale, Wazuh, Elastic KQL, Sigma, Sentinel KQL.
 - **Reports** — markdown investigation report, customer email draft, ticket note, daily SOC summary.
@@ -100,6 +105,16 @@ Switch provider in the UI (**Settings → Providers**, or the provider selector 
 - **Structured-output reliability** — JSON repair → schema coercion → stricter-prompt retry → mock fallback → completeness QA (weak/incomplete output is forced to *Needs Review*).
 - **Prompt management** — versioned prompt templates (list/create/activate/evaluate).
 - **Observability** — cost/latency time-series, failed-call and fallback-event logs, top-expensive investigations, local-vs-cloud split on the **AI Operations** dashboard.
+- **Streaming** — real SSE token streaming for OpenAI-compatible, Ollama and mock providers (`POST /ai/chat/stream`).
+
+### 🛡️ Reliability & Security
+
+- **Auth** — JWT access **+ refresh** tokens with server-side revocation (logout bumps a per-user token version). Five-role RBAC (viewer → analyst → soc_manager → org_admin → platform_admin) enforced at the route layer.
+- **Tenant isolation** — every query is org-scoped; verified by an automated two-org leakage test.
+- **Rate limiting** (sliding window, `429` + `Retry-After`) and a **payload size cap** on alert ingest.
+- **Secrets** — env-only by default; any persisted secret is Fernet-encrypted at rest and returned masked. Logs redact keys/tokens; PII is redacted before external AI calls.
+- **Tested** — 59 backend tests (incl. httpx-mocked provider adapters, isolation, crypto, feedback loop) + frontend unit tests, all run in **CI** (`.github/workflows/ci.yml`: pytest · alembic upgrade · tsc · build).
+- **Real migrations** — Alembic initial migration with full `create_table` ops (not `create_all`).
 
 ### 🔒 Local / Private LLM support
 
@@ -236,15 +251,23 @@ AutoSOC is a **defensive** security tool. It does **not** perform offensive expl
 
 ---
 
+## ✅ Done in recent hardening passes
+
+Feedback loop wired into confidence · functional vector-memory RAG (SOPs + case memory) · human-approval workflow · SSE streaming · JWT refresh + revocation · rate limiting + payload cap · Fernet secret encryption · httpx-mocked provider tests · two-org isolation test · CI pipeline · real Alembic migration.
+
 ## 🗺️ Roadmap
 
-- [ ] Streaming AI responses in the UI
-- [ ] Live VirusTotal/AbuseIPDB/GreyNoise enrichment (keys → real lookups)
-- [ ] Qdrant-backed vector memory for case/SOP retrieval (RAG)
+- [ ] Live VirusTotal/AbuseIPDB/GreyNoise enrichment (adapters present; wire keys → real lookups)
+- [ ] Qdrant/pgvector backend for vector memory (interface present; `memory` backend is the supported default)
+- [ ] Embedding upgrade (swap the hashing vectorizer for a sentence-transformer when a model is available)
 - [ ] SIEM/EDR webhook ingestion connectors (Splunk HEC, CrowdStrike streaming)
-- [ ] Approval workflow UI for response recommendations
-- [ ] SSO/SAML, fine-grained RBAC, per-customer dashboards
+- [ ] Streaming investigation in the UI (endpoint exists; surface it in the alert view)
+- [ ] SSO/SAML, per-customer dashboards
 - [ ] Sigma → live deployment export
+
+### Honest scope note
+
+This is a **portfolio-grade** platform that runs end-to-end offline. The 13 provider *adapters* are real HTTP clients (cloud ones are unit-tested against mocked responses but not against live paid APIs). The vector memory uses a lightweight hashing vectorizer, not a neural embedding model. External enrichment beyond the mock (VirusTotal etc.) is key-gated and partly scaffolded. See each doc for specifics — nothing here is claimed as battle-tested production infrastructure.
 
 ---
 

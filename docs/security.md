@@ -56,8 +56,27 @@ All response/containment actions are produced as **recommendations only** and ar
 ## Authentication & RBAC
 
 - JWT bearer auth (`python-jose`), bcrypt password hashing (`passlib`).
-- Five roles with route-level enforcement: `platform_admin`, `organization_admin`, `soc_manager`, `analyst`, `viewer`.
-- Write operations require analyst or above; org/customer management requires org admin.
+- **Access + refresh tokens.** `POST /auth/login` returns both. `POST /auth/refresh` exchanges a valid refresh token for a new access token.
+- **Revocation.** Each user has a `token_version`; `POST /auth/logout` (and any password change) increments it, immediately invalidating all previously issued access/refresh tokens.
+- **Role matrix** (enforced at the route layer):
+
+  | Capability | viewer | analyst | soc_manager | org_admin | platform_admin |
+  |---|:---:|:---:|:---:|:---:|:---:|
+  | Read dashboards/alerts/reports | ✅ | ✅ | ✅ | ✅ | ✅ |
+  | Submit alerts, investigate, feedback | | ✅ | ✅ | ✅ | ✅ |
+  | Manage customers, allowlists, SOPs; **approve containment** | | | ✅ | ✅ | ✅ |
+  | Org-wide AI config, user/role management | | | | ✅ | ✅ |
+  | Cross-organization access | | | | | ✅ |
+
+## Rate limiting & abuse protection
+
+- In-process sliding-window rate limiter (`RATE_LIMIT_PER_MINUTE`, default 120/min per client IP; honors `X-Forwarded-For`). Returns `429` with `Retry-After`. Back it with Redis for multi-node.
+- Alert `raw_payload` is capped at `MAX_ALERT_PAYLOAD_CHARS` (default 100k) — protects storage and AI token cost (`413` on overflow).
+
+## Secrets at rest
+
+- Provider/integration secrets supplied via environment variables are never written to the DB.
+- Any secret that *is* persisted (e.g. a per-org key set through the API) is encrypted with Fernet (`app/core/crypto.py`, key from `SECRET_ENCRYPTION_KEY` or derived from `JWT_SECRET`) and only ever returned masked (`****1234`).
 
 ## Production hardening checklist
 

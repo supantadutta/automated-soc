@@ -40,10 +40,20 @@ Accepted values for `routing_mode` / `AI_ROUTING_MODE` (public name → internal
 | Want a clean slate | `make clean` (drops volumes), then `make up` |
 | Seed didn't load | `make seed` or `python -m app.db.seed` (idempotent) |
 
+## HTTP errors
+
+| Status | Meaning | Fix |
+|---|---|---|
+| `401 Token revoked` | You logged out (or changed password) then reused an old token | Log in again to get fresh tokens |
+| `403 Requires SOC manager / org admin` | Role too low for the action | Use a `soc_manager`+ (approvals) or `org_admin` (AI config) account |
+| `413` on `POST /alerts` | `raw_payload` over `MAX_ALERT_PAYLOAD_CHARS` | Trim the payload or raise the limit |
+| `429 Rate limit exceeded` | More than `RATE_LIMIT_PER_MINUTE` requests from one IP | Back off (honor `Retry-After`) or raise/disable the limit in `.env` |
+
 ## Tests
 
 ```bash
-cd backend && . .venv/bin/activate && pytest -q     # 40 tests, fully offline (sqlite + mock)
+cd backend && . .venv/bin/activate && pytest -q     # 59 tests, fully offline (sqlite + mock + mocked httpx)
+cd frontend && npm run test                          # vitest unit tests
 ```
 A harmless `error reading bcrypt version` warning from passlid/bcrypt 4.x may appear; it is trapped and does not affect functionality.
 

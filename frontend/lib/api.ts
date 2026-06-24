@@ -152,6 +152,22 @@ export const api = {
       body: { email, password, full_name: name, organization_name },
     }),
   me: () => apiFetch<User>('/auth/me'),
+  logout: () => apiFetch<any>('/auth/logout', { method: 'POST' }),
+
+  // Response recommendations & approval workflow
+  listRecommendations: (investigationId: string | number) =>
+    apiFetch<any[]>(`/investigations/${investigationId}/recommendations`),
+  requestApproval: (recommendationId: number) =>
+    apiFetch<any>(`/recommendations/${recommendationId}/request-approval`, { method: 'POST' }),
+  listApprovals: () => apiFetch<any[]>('/approvals'),
+  decideApproval: (approvalId: number, decision: 'approved' | 'rejected', note?: string) =>
+    apiFetch<any>(`/approvals/${approvalId}/decision`, { method: 'POST', body: { decision, note } }),
+
+  // Knowledge documents (SOPs)
+  listKnowledge: (customerId?: string) =>
+    apiFetch<any[]>(`/knowledge${customerId ? `?customer_id=${customerId}` : ''}`),
+  createKnowledge: (body: { title: string; content: string; doc_type?: string; customer_id?: number }) =>
+    apiFetch<any>('/knowledge', { method: 'POST', body }),
 
   // Customers
   listCustomers: () =>

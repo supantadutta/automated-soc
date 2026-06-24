@@ -22,6 +22,7 @@ export default function AlertDetailPage() {
   const [provider, setProvider] = useState('');
   const [feedback, setFeedback] = useState('TP');
   const [comment, setComment] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   const alertQ = useQuery({ queryKey: ['alert', id], queryFn: () => api.getAlert(id) });
   const invsQ = useQuery({ queryKey: ['investigations'], queryFn: () => api.listInvestigations() });
@@ -41,6 +42,7 @@ export default function AlertDetailPage() {
 
   async function run(step: string, fn: () => Promise<any>) {
     setBusy(step);
+    setError(null);
     try {
       const res = await fn();
       if (step === 'correlate') setCorrelation(res);
@@ -48,8 +50,8 @@ export default function AlertDetailPage() {
       await qc.invalidateQueries({ queryKey: ['investigations'] });
       await qc.invalidateQueries({ queryKey: ['reports'] });
       await qc.invalidateQueries({ queryKey: ['audit'] });
-    } catch {
-      // Pipeline step errors surface via the unchanged alert state; the user can retry.
+    } catch (e: any) {
+      setError(`${step} failed: ${e?.message || 'unknown error'}`);
     } finally {
       setBusy(null);
     }
@@ -71,6 +73,12 @@ export default function AlertDetailPage() {
           </div>
         </div>
       </div>
+
+      {error && (
+        <div className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+          {error}
+        </div>
+      )}
 
       {/* Pipeline action bar */}
       <Card>
@@ -242,6 +250,7 @@ export default function AlertDetailPage() {
                     {result.qa_warnings.map((w: string, i: number) => <li key={i}>⚠️ {w}</li>)}
                   </ul></CardContent></Card>
               )}
+              <ApprovalsPanel investigationId={investigation.id} />
             </div>
           ) : <EmptyState title="No investigation yet" description="Run Investigate above." />}
         </TabsContent>
@@ -349,4 +358,49 @@ function ReportMarkdown({ id }: { id: string }) {
   const q = useQuery({ queryKey: ['report-md', id], queryFn: () => api.getReportMarkdown(id) });
   if (q.isLoading) return <LoadingState />;
   return <pre className="max-h-[600px] overflow-auto whitespace-pre-wrap rounded-md bg-secondary/40 p-4 text-xs">{q.data}</pre>;
+}
+
+function ApprovalsPanel({ investigationId }: { investigationId: number }) {
+  const qc = useQueryClient();
+  const recs = useQuery({
+    queryKey: ['recommendations', investigationId],
+    queryFn: () => api.listRecommendations(investigationId),
+  });
+  const approvals = useQuery({ queryKey: ['approvals'], queryFn: () => api.listApprovals() });
+
+  const requested = new Set((approvals.data || []).map((a: any) => a.action));
+  if ((recs.data?.length ?? 0) === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Human-Approval Workflow</CardTitle></CardHeader>
+      <CardContent className="space-y-2">
+        <p className="text-xs text-amber-400">No action is executed automatically. Request approval to record analyst intent.</p>
+        {(recs.data || []).map((r: any) => {
+          const appr: any = (approvals.data || []).find((a: any) => a.action === r.action);
+          return (
+            <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm">
+              <span>{r.action}</span>
+              <div className="flex items-center gap-2">
+                {appr ? (
+                  <Badge variant={appr.status === 'approved' ? 'success' : appr.status === 'rejected' ? 'danger' : 'warning'}>{appr.status}</Badge>
+                ) : (
+                  <Button size="sm" variant="outline"
+                    onClick={() => api.requestApproval(r.id).then(() => qc.invalidateQueries({ queryKey: ['approvals'] }))}>
+                    Request approval
+                  </Button>
+                )}
+                {appr && appr.status === 'pending' && (
+                  <>
+                    <Button size="sm" variant="success" onClick={() => api.decideApproval(appr.id, 'approved').then(() => qc.invalidateQueries({ queryKey: ['approvals'] }))}>Approve</Button>
+                    <Button size="sm" variant="destructive" onClick={() => api.decideApproval(appr.id, 'rejected').then(() => qc.invalidateQueries({ queryKey: ['approvals'] }))}>Reject</Button>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
 }
